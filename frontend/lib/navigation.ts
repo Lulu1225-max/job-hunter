@@ -1,5 +1,4 @@
 import {
-  BarChart3,
   BriefcaseBusiness,
   FileText,
   FileSearch,
@@ -7,8 +6,7 @@ import {
   LayoutDashboard,
   Library,
   Settings,
-  Sparkles,
-  UserRound
+  Sparkles
 } from "lucide-react";
 
 export const navItems = [
@@ -17,9 +15,7 @@ export const navItems = [
   {href: "/applications", labelKey: "nav.applications", icon: FolderOpen},
   {href: "/resumes", labelKey: "nav.resumes", icon: FileText},
   {href: "/resume-match", labelKey: "nav.resumeMatch", icon: FileSearch},
-  {href: "/profile", labelKey: "nav.profile", icon: UserRound},
   {href: "/experiences", labelKey: "nav.experiences", icon: Library},
   {href: "/interviews", labelKey: "nav.interviews", icon: Sparkles},
-  {href: "/analytics", labelKey: "nav.analytics", icon: BarChart3},
   {href: "/settings", labelKey: "nav.settings", icon: Settings}
 ];

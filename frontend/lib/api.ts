@@ -35,6 +35,25 @@ export type Resume = {
   created_at?: string;
 };
 
+export type CareerProfile = {
+  display_name?: string | null;
+  university?: string | null;
+  degree?: string | null;
+  major?: string | null;
+  specialisation?: string | null;
+  graduation_year?: number | null;
+  target_roles?: string[];
+  target_locations?: string[];
+  target_industries?: string[];
+  preferred_job_types?: string[];
+  technical_skills?: string[];
+  product_skills?: string[];
+  soft_skills?: string[];
+  tools?: string[];
+  languages?: string[];
+  ai_response_language?: string;
+};
+
 export type Experience = {
   id: string;
   title: string;
