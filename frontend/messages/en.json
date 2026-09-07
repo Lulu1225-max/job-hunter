@@ -1,0 +1,217 @@
+{
+  "app": {
+    "subtitle": "AI-powered job search workspace",
+    "chineseSubtitle": "AI-powered job search workspace"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "jobs": "Job Discovery",
+    "applications": "Applications",
+    "resumeMatch": "Resume Match",
+    "resumes": "Resumes",
+    "profile": "Career Profile",
+    "experiences": "Experience Library",
+    "interviews": "Interviews",
+    "analytics": "Analytics",
+    "settings": "Settings"
+  },
+  "auth": {
+    "login": "Login",
+    "register": "Register"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "subtitle": "Track the complete loop from discovery to interview review.",
+    "applications": "Applications",
+    "interviews": "Interviews",
+    "offers": "Offers",
+    "rejections": "Rejections",
+    "deadlines": "Upcoming deadlines"
+  },
+  "status": {
+    "saved": "Saved",
+    "applied": "Applied",
+    "oa": "Online Assessment",
+    "interview": "Interview",
+    "final_interview": "Final Interview",
+    "offer": "Offer",
+    "rejected": "Rejected",
+    "withdrawn": "Withdrawn"
+  },
+  "applications": {
+    "title": "Application Tracker",
+    "subtitle": "Move applications through saved, applied, assessments, interviews, and outcomes.",
+    "applied": "Applied",
+    "emails": "emails",
+    "date": "Date",
+    "noDate": "No date recorded",
+    "roleMissing": "Role not recorded",
+    "company": "Company",
+    "role": "Role",
+    "detailTitle": "Application Detail",
+    "detailSubtitle": "This record is loaded from the persisted applications database.",
+    "add": "Add Application",
+    "pasteEmail": "Paste Email",
+    "parsePreview": "Parse Preview",
+    "prepareInterview": "Prepare Interview",
+    "groups": {
+      "applied": "Applied",
+      "oa": "Online Assessment",
+      "interview": "Interviewing",
+      "offer": "Offers",
+      "rejected": "Rejected",
+      "saved": "Saved",
+      "final_interview": "Final Interview",
+      "withdrawn": "Withdrawn"
+    }
+  },
+  "jobs": {
+    "title": "Job Discovery",
+    "subtitle": "Import jobs, filter opportunities, then match your resume before applying.",
+    "import": "Import Jobs",
+    "discoveryScore": "Discovery score",
+    "deadline": "Deadline",
+    "roleMissing": "Role not recorded",
+    "metaMissing": "No location or industry recorded",
+    "recommended": "Recommended for You",
+    "allJobs": "All Jobs",
+    "matched": "Strong Matches",
+    "missing": "Missing",
+    "noMissing": "No major gaps detected",
+    "matchResume": "Match Resume",
+    "noDescription": "No job description has been added yet. Add a JD to unlock deeper matching.",
+    "sort": {
+      "recommended": "Recommended",
+      "match": "Match Score",
+      "deadline": "Deadline",
+      "newest": "Newest"
+    },
+    "filters": {
+      "keyword": "Keyword",
+      "company": "Company",
+      "location": "Location",
+      "industry": "Industry",
+      "type": "Job type"
+    }
+  },
+  "jobTypes": {
+    "internship": "Internship",
+    "graduate": "Graduate",
+    "full_time": "Full-time"
+  },
+  "import": {
+    "title": "Excel Job Import",
+    "subtitle": "Detect sheets, identify headers, preview mappings, and confirm before importing.",
+    "filepath": "Workbook path",
+    "detect": "Detect",
+    "confirm": "Confirm Import",
+    "headerRow": "Header row",
+    "sourceColumn": "Source column",
+    "normalizedField": "Normalized field",
+    "counts": {
+      "total_rows": "Rows",
+      "created": "Created",
+      "updated": "Updated",
+      "skipped": "Skipped",
+      "invalid": "Invalid"
+    }
+  },
+  "modules": {
+    "profile": "Career profile combines education, target roles, skill sources, and AI skill suggestions that require confirmation.",
+    "resumes": "Upload private resumes, extract text, and keep one default resume for matching.",
+    "resumeMatch": "Compare resume evidence with a job description using explainable keyword, semantic, and experience scores.",
+    "experiences": "Store projects, work, education, leadership, and volunteer stories as reusable Career Memory.",
+    "interviews": "Generate prep, import questions, coach answers, and save review notes after each interview.",
+    "analytics": "Measure applications, interviews, offers, rejections, conversions, skills, and topics over time.",
+    "settings": "Keep UI language separate from AI response language."
+  },
+  "states": {
+    "loading": "Loading real data...",
+    "error": "Could not load data from the backend.",
+    "noJobs": "No jobs imported yet.",
+    "noApplications": "No applications yet.",
+    "noExperiences": "No experiences saved yet.",
+    "noResumes": "No resumes uploaded yet."
+  },
+  "profile": {
+    "save": "Save Profile",
+    "displayName": "Display name",
+    "university": "University",
+    "degree": "Degree",
+    "major": "Major",
+    "specialisation": "Specialisation",
+    "graduationYear": "Graduation year",
+    "targetRoles": "Target roles",
+    "targetLocations": "Target locations",
+    "preferredJobTypes": "Preferred job types",
+    "technicalSkills": "Technical skills",
+    "productSkills": "Product skills",
+    "softSkills": "Soft skills",
+    "tools": "Tools",
+    "languages": "Languages",
+    "aiResponseLanguage": "AI Response Language",
+    "aiChinese": "Chinese",
+    "aiEnglish": "English",
+    "aiBilingual": "Bilingual",
+    "saved": "Profile saved"
+  },
+  "resumes": {
+    "title": "My Resumes",
+    "subtitle": "Manage persisted resumes and choose the default resume used for matching.",
+    "upload": "Upload Resume",
+    "default": "Default Resume",
+    "uploaded": "Uploaded",
+    "status": "Status",
+    "extracted": "Text Extracted",
+    "pending": "Pending Extraction",
+    "view": "View",
+    "useForMatch": "Use for Match",
+    "setDefault": "Set as Default",
+    "delete": "Delete",
+    "extractedText": "Extracted Resume Text"
+  },
+  "resumeMatch": {
+    "title": "Resume Match",
+    "subtitle": "Compare a persisted resume with a persisted job using explainable evidence.",
+    "run": "Run Match",
+    "overall": "Overall Match",
+    "keyword": "Keyword Match",
+    "semantic": "Semantic Match",
+    "experience": "Experience Relevance",
+    "matched": "Matched Keywords / Skills",
+    "missing": "Missing Keywords / Skills",
+    "none": "None",
+    "evidence": "Relevant Experience",
+    "improvements": "Suggested Resume Improvements"
+  },
+  "interviews": {
+    "title": "Interview Preparation",
+    "round": "Round",
+    "type": "Interview Type",
+    "status": "Status",
+    "date": "Interview Date",
+    "topics": "Likely Interview Topics",
+    "recommendedExperiences": "Recommended Experiences",
+    "generate": "Generate Answers",
+    "practice": "Answer Practice / AI Feedback",
+    "analyse": "Analyse My Answer",
+    "publicResearch": "Public Research",
+    "aiGenerated": "AI Generated",
+    "answer30s": "30-second version",
+    "answer1min": "1-minute version",
+    "answer2min": "2-minute version"
+  },
+  "analytics": {
+    "statusBreakdown": "Application Status Breakdown"
+  },
+  "experiences": {
+    "title": "Experience Library",
+    "subtitle": "Persist reusable project, work, education, and leadership stories.",
+    "experienceTitle": "Title",
+    "type": "Type",
+    "description": "Description",
+    "add": "Add Experience",
+    "delete": "Delete",
+    "save": "Save Experience"
+  }
+}

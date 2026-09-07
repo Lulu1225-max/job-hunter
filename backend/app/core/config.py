@@ -1,0 +1,17 @@
+from __future__ import annotations
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
+    app_name: str = "JobPilot"
+    api_prefix: str = "/api/v1"
+    database_url: str = "postgresql+psycopg://127.0.0.1:54329/jobhunter"
+    frontend_origin: str = "http://127.0.0.1:3001"
+    supabase_url: str | None = None
+    openai_api_key: str | None = None
+
+
+settings = Settings()

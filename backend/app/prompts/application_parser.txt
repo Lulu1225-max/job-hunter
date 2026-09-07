@@ -1,0 +1,2 @@
+Extract application information from a user-pasted recruiting email.
+Return only validated structured data for preview. Do not persist data.

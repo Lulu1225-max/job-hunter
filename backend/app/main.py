@@ -1,0 +1,35 @@
+from __future__ import annotations
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.core.config import settings
+from app.api.v1 import analytics, applications, experiences, jobs, profile, resumes, interviews
+
+app = FastAPI(title="JobPilot API", version="0.1.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:3001", settings.frontend_origin],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(profile.router, prefix="/api/v1/profile", tags=["profile"])
+app.include_router(jobs.router, prefix="/api/v1/jobs", tags=["jobs"])
+app.include_router(applications.router, prefix="/api/v1/applications", tags=["applications"])
+app.include_router(resumes.router, prefix="/api/v1/resumes", tags=["resumes"])
+app.include_router(experiences.router, prefix="/api/v1/experiences", tags=["experiences"])
+app.include_router(interviews.router, prefix="/api/v1", tags=["interviews"])
+app.include_router(analytics.router, prefix="/api/v1/analytics", tags=["analytics"])
+
+
+@app.get("/health")
+def health() -> dict[str, str]:
+    return {"status": "ok"}
+
+
+@app.get("/api/v1/health")
+def api_health() -> dict[str, str]:
+    return {"status": "ok"}

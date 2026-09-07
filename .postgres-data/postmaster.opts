@@ -1,0 +1,1 @@
+/opt/miniconda3/bin/postgres "-D" "/Users/jilu/Desktop/JobHunter/.postgres-data" "-p" "54329" "-k" "/Users/jilu/Desktop/JobHunter/.postgres-data"

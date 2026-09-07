@@ -1,0 +1,14 @@
+{
+  "name": "job-hunter",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix frontend run dev",
+    "backend": "cd backend && uvicorn app.main:app --reload",
+    "test:backend": "cd backend && python -m pytest",
+    "lint": "npm --prefix frontend run lint"
+  },
+  "workspaces": [
+    "frontend"
+  ]
+}

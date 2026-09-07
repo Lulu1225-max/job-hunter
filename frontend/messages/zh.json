@@ -1,0 +1,217 @@
+{
+  "app": {
+    "subtitle": "AI 求职工作台",
+    "chineseSubtitle": "AI 求职工作台"
+  },
+  "nav": {
+    "dashboard": "仪表盘",
+    "jobs": "职位发现",
+    "applications": "申请追踪",
+    "resumeMatch": "简历匹配",
+    "resumes": "简历",
+    "profile": "职业档案",
+    "experiences": "经历库",
+    "interviews": "面试",
+    "analytics": "数据分析",
+    "settings": "设置"
+  },
+  "auth": {
+    "login": "登录",
+    "register": "注册"
+  },
+  "dashboard": {
+    "title": "仪表盘",
+    "subtitle": "从职位发现到面试复盘，追踪完整求职闭环。",
+    "applications": "申请",
+    "interviews": "面试",
+    "offers": "录用",
+    "rejections": "拒信",
+    "deadlines": "近期截止"
+  },
+  "status": {
+    "saved": "收藏",
+    "applied": "已投递",
+    "oa": "笔试/测评",
+    "interview": "面试",
+    "final_interview": "终面",
+    "offer": "Offer",
+    "rejected": "被拒",
+    "withdrawn": "已撤回"
+  },
+  "applications": {
+    "title": "申请追踪",
+    "subtitle": "管理收藏、投递、测评、面试和最终结果。",
+    "applied": "投递于",
+    "emails": "封邮件",
+    "date": "日期",
+    "noDate": "暂无日期",
+    "roleMissing": "未填写岗位",
+    "company": "公司",
+    "role": "岗位",
+    "detailTitle": "申请详情",
+    "detailSubtitle": "这条记录来自持久化的申请数据库。",
+    "add": "添加申请",
+    "pasteEmail": "粘贴邮件",
+    "parsePreview": "解析预览",
+    "prepareInterview": "准备面试",
+    "groups": {
+      "applied": "已投递",
+      "oa": "笔试/测评",
+      "interview": "面试中",
+      "offer": "录用",
+      "rejected": "被拒",
+      "saved": "收藏",
+      "final_interview": "终面",
+      "withdrawn": "已撤回"
+    }
+  },
+  "jobs": {
+    "title": "职位发现",
+    "subtitle": "导入职位，筛选机会，并在申请前完成简历匹配。",
+    "import": "导入职位",
+    "discoveryScore": "发现分",
+    "deadline": "截止日期",
+    "roleMissing": "未填写岗位",
+    "metaMissing": "暂无地点或行业",
+    "recommended": "为你推荐",
+    "allJobs": "全部职位",
+    "matched": "强匹配",
+    "missing": "缺口",
+    "noMissing": "暂无明显缺口",
+    "matchResume": "匹配简历",
+    "noDescription": "还没有职位描述。添加 JD 后可以解锁更深入的匹配。",
+    "sort": {
+      "recommended": "推荐排序",
+      "match": "匹配分",
+      "deadline": "截止日期",
+      "newest": "最新"
+    },
+    "filters": {
+      "keyword": "关键词",
+      "company": "公司",
+      "location": "地点",
+      "industry": "行业",
+      "type": "职位类型"
+    }
+  },
+  "jobTypes": {
+    "internship": "实习",
+    "graduate": "校招",
+    "full_time": "全职"
+  },
+  "import": {
+    "title": "Excel 职位导入",
+    "subtitle": "先检测工作表、表头和字段映射，确认后再导入。",
+    "filepath": "工作簿路径",
+    "detect": "检测",
+    "confirm": "确认导入",
+    "headerRow": "表头行",
+    "sourceColumn": "原始列",
+    "normalizedField": "标准字段",
+    "counts": {
+      "total_rows": "总行数",
+      "created": "新建",
+      "updated": "更新",
+      "skipped": "跳过",
+      "invalid": "无效"
+    }
+  },
+  "modules": {
+    "profile": "职业档案整合教育背景、目标岗位、技能来源，以及需要确认的 AI 技能建议。",
+    "resumes": "上传私密简历、提取文本，并设置默认简历用于匹配。",
+    "resumeMatch": "用关键词、语义和经历相关性评分解释简历与 JD 的匹配度。",
+    "experiences": "沉淀项目、工作、教育、领导力和志愿经历，形成可复用职业记忆。",
+    "interviews": "生成面试准备、导入题目、辅导答案，并保存面试复盘。",
+    "analytics": "统计申请、面试、录用、拒信、转化率、技能和题型趋势。",
+    "settings": "界面语言和 AI 回答语言分别设置。"
+  },
+  "states": {
+    "loading": "正在加载真实数据...",
+    "error": "无法从后端加载数据。",
+    "noJobs": "还没有导入职位。",
+    "noApplications": "还没有申请记录。",
+    "noExperiences": "还没有保存经历。",
+    "noResumes": "还没有上传简历。"
+  },
+  "profile": {
+    "save": "保存档案",
+    "displayName": "显示名称",
+    "university": "学校",
+    "degree": "学位",
+    "major": "专业",
+    "specialisation": "方向",
+    "graduationYear": "毕业年份",
+    "targetRoles": "目标岗位",
+    "targetLocations": "目标地点",
+    "preferredJobTypes": "偏好类型",
+    "technicalSkills": "技术技能",
+    "productSkills": "产品技能",
+    "softSkills": "软技能",
+    "tools": "工具",
+    "languages": "语言",
+    "aiResponseLanguage": "AI 回答语言",
+    "aiChinese": "中文",
+    "aiEnglish": "英文",
+    "aiBilingual": "中英双语",
+    "saved": "档案已保存"
+  },
+  "resumes": {
+    "title": "我的简历",
+    "subtitle": "管理持久化简历，并选择用于匹配的默认简历。",
+    "upload": "上传简历",
+    "default": "默认简历",
+    "uploaded": "上传",
+    "status": "状态",
+    "extracted": "已提取文本",
+    "pending": "待提取",
+    "view": "查看",
+    "useForMatch": "用于匹配",
+    "setDefault": "设为默认",
+    "delete": "删除",
+    "extractedText": "提取的简历文本"
+  },
+  "resumeMatch": {
+    "title": "简历匹配",
+    "subtitle": "用可解释证据比较持久化简历和持久化职位。",
+    "run": "开始匹配",
+    "overall": "综合匹配度",
+    "keyword": "关键词匹配",
+    "semantic": "语义匹配",
+    "experience": "经历相关度",
+    "matched": "已匹配关键词 / 技能",
+    "missing": "缺失关键词 / 技能",
+    "none": "暂无",
+    "evidence": "相关经历证据",
+    "improvements": "修改建议"
+  },
+  "interviews": {
+    "title": "面试准备",
+    "round": "轮次",
+    "type": "面试类型",
+    "status": "状态",
+    "date": "面试日期",
+    "topics": "可能考察主题",
+    "recommendedExperiences": "推荐经历",
+    "generate": "生成回答",
+    "practice": "回答练习 / AI 反馈",
+    "analyse": "分析我的回答",
+    "publicResearch": "公开面经",
+    "aiGenerated": "AI 生成",
+    "answer30s": "30 秒版本",
+    "answer1min": "1 分钟版本",
+    "answer2min": "2 分钟版本"
+  },
+  "analytics": {
+    "statusBreakdown": "申请状态分布"
+  },
+  "experiences": {
+    "title": "经历库",
+    "subtitle": "持久化项目、工作、教育和领导力经历。",
+    "experienceTitle": "标题",
+    "type": "类型",
+    "description": "描述",
+    "add": "添加经历",
+    "delete": "删除",
+    "save": "保存经历"
+  }
+}
