@@ -17,7 +17,19 @@
   },
   "auth": {
     "login": "登录",
-    "register": "注册"
+    "logout": "退出登录",
+    "register": "注册",
+    "name": "姓名",
+    "email": "邮箱",
+    "password": "密码",
+    "loading": "请稍候...",
+    "demoMode": "进入演示模式",
+    "noAccount": "还没有账号？",
+    "hasAccount": "已有账号？",
+    "confirmEmail": "注册已创建。如果你的 Supabase 项目开启了邮箱确认，请先确认邮箱再登录。",
+    "loginError": "登录失败，请检查邮箱和密码。",
+    "registerError": "注册失败，请检查信息后重试。",
+    "demoError": "演示模式不可用，请检查后端 Demo 账号配置。"
   },
   "dashboard": {
     "title": "仪表盘",

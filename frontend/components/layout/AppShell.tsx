@@ -1,19 +1,40 @@
 "use client";
 
 import Link from "next/link";
-import {usePathname} from "next/navigation";
+import {usePathname, useRouter} from "next/navigation";
 import {useTranslations} from "next-intl";
-import {Languages, PlaneTakeoff} from "lucide-react";
+import {Languages, LogOut, PlaneTakeoff} from "lucide-react";
 import {navItems} from "@/lib/navigation";
+import {AuthGate} from "@/components/auth/AuthGate";
+import {getSession, logout} from "@/lib/auth";
+import {useEffect, useState} from "react";
 
 export function AppShell({children, locale}: {children: React.ReactNode; locale: string}) {
   const pathname = usePathname();
+  const router = useRouter();
   const t = useTranslations();
   const otherLocale = locale === "zh" ? "en" : "zh";
   const withoutLocale = pathname.replace(/^\/(en|zh)/, "") || "/dashboard";
+  const isAuthPage = withoutLocale.startsWith("/login") || withoutLocale.startsWith("/register");
+  const [isSignedIn, setIsSignedIn] = useState(false);
+
+  useEffect(() => {
+    function sync() {
+      setIsSignedIn(Boolean(getSession()));
+    }
+    sync();
+    window.addEventListener("jobpilot-auth-change", sync);
+    return () => window.removeEventListener("jobpilot-auth-change", sync);
+  }, []);
+
+  async function handleLogout() {
+    await logout();
+    router.push(`/${locale}/login`);
+  }
 
   return (
-    <div className="min-h-screen bg-paper">
+    <AuthGate locale={locale}>
+      <div className="min-h-screen bg-paper">
       <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-line bg-white px-4 py-5 text-ink lg:block">
         <Link href={`/${locale}/dashboard`} className="mb-8 flex items-start gap-3 rounded-lg bg-skysoft px-3 py-4">
           <span className="flex h-10 w-10 items-center justify-center rounded-md bg-brand text-white shadow-card">
@@ -64,11 +85,21 @@ export function AppShell({children, locale}: {children: React.ReactNode; locale:
                 <Languages className="h-4 w-4" />
                 {otherLocale.toUpperCase()}
               </Link>
+              {isSignedIn && !isAuthPage && (
+                <button
+                  onClick={handleLogout}
+                  className="focus-ring flex h-9 items-center gap-2 rounded-md border border-line bg-white px-3 text-sm text-ink hover:border-brand hover:text-brand"
+                >
+                  <LogOut className="h-4 w-4" />
+                  {t("auth.logout")}
+                </button>
+              )}
             </div>
           </div>
         </header>
         <main className="mx-auto max-w-6xl px-5 py-8">{children}</main>
       </div>
     </div>
+    </AuthGate>
   );
 }

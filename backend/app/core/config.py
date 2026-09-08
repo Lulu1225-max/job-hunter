@@ -11,6 +11,11 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://127.0.0.1:54329/jobhunter"
     frontend_origin: str = "http://127.0.0.1:3001"
     supabase_url: str | None = None
+    supabase_publishable_key: str | None = None
+    supabase_jwt_secret: str | None = None
+    supabase_jwt_audience: str = "authenticated"
+    demo_user_email: str | None = None
+    demo_user_password: str | None = None
     openai_api_key: str | None = None
 
 

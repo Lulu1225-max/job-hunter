@@ -1,3 +1,5 @@
+import {clearSession, getAccessToken} from "@/lib/auth";
+
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
 
 export type Job = {
@@ -91,8 +93,9 @@ export type DashboardOverview = {
 };
 
 export async function apiGet<T>(path: string): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {cache: "no-store"});
+  const response = await fetch(`${API_BASE_URL}${path}`, {cache: "no-store", headers: authHeaders()});
   if (!response.ok) {
+    if (response.status === 401) clearSession();
     throw new Error(`API request failed: ${response.status}`);
   }
   return response.json();
@@ -101,14 +104,20 @@ export async function apiGet<T>(path: string): Promise<T> {
 export async function apiSend<T>(path: string, method: string, body?: unknown): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method,
-    headers: {"Content-Type": "application/json"},
+    headers: {"Content-Type": "application/json", ...authHeaders()},
     body: body === undefined ? undefined : JSON.stringify(body)
   });
   if (!response.ok) {
+    if (response.status === 401) clearSession();
     throw new Error(`API request failed: ${response.status}`);
   }
   if (response.status === 204) {
     return undefined as T;
   }
   return response.json();
+}
+
+export function authHeaders(): Record<string, string> {
+  const token = getAccessToken();
+  return token ? {Authorization: `Bearer ${token}`} : {};
 }

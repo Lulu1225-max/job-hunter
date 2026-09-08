@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.api.v1 import analytics, applications, experiences, jobs, profile, resumes, interviews
+from app.api.v1 import analytics, applications, auth, experiences, jobs, profile, resumes, interviews
 
 app = FastAPI(title="JobPilot API", version="0.1.0")
 
@@ -17,6 +17,7 @@ app.add_middleware(
 )
 
 app.include_router(profile.router, prefix="/api/v1/profile", tags=["profile"])
+app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(jobs.router, prefix="/api/v1/jobs", tags=["jobs"])
 app.include_router(applications.router, prefix="/api/v1/applications", tags=["applications"])
 app.include_router(resumes.router, prefix="/api/v1/resumes", tags=["resumes"])

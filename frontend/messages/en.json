@@ -17,7 +17,19 @@
   },
   "auth": {
     "login": "Login",
-    "register": "Register"
+    "logout": "Logout",
+    "register": "Register",
+    "name": "Name",
+    "email": "Email",
+    "password": "Password",
+    "loading": "Please wait...",
+    "demoMode": "Enter Demo Mode",
+    "noAccount": "No account yet?",
+    "hasAccount": "Already have an account?",
+    "confirmEmail": "Registration created. Confirm your email before logging in if your Supabase project requires email confirmation.",
+    "loginError": "Login failed. Check your email and password.",
+    "registerError": "Registration failed. Check your details and try again.",
+    "demoError": "Demo Mode is not available. Check backend demo account configuration."
   },
   "dashboard": {
     "title": "Dashboard",

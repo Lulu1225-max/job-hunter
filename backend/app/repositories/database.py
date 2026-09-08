@@ -24,11 +24,21 @@ from app.utils.normalization import canonical_status, normalize_text, parse_date
 from app.services.matching import analyse_job_match
 
 
-def ensure_user(db: Session, user_id: UUID) -> User:
+def ensure_user(db: Session, user_id: UUID, email: str | None = None, display_name: str | None = None) -> User:
     user = db.get(User, user_id)
     if user:
+        changed = False
+        if email and user.email != email:
+            user.email = email
+            changed = True
+        if display_name and user.display_name != display_name:
+            user.display_name = display_name
+            changed = True
+        if changed:
+            db.commit()
+            db.refresh(user)
         return user
-    user = User(id=user_id, email="local@jobpilot.dev", display_name="Local User")
+    user = User(id=user_id, email=email or f"{user_id}@supabase.local", display_name=display_name)
     db.add(user)
     db.commit()
     db.refresh(user)

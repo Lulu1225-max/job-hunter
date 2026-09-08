@@ -3,7 +3,7 @@
 import {useMemo, useState} from "react";
 import {usePathname} from "next/navigation";
 import {Check, FileSpreadsheet, Search} from "lucide-react";
-import {API_BASE_URL} from "@/lib/api";
+import {API_BASE_URL, authHeaders} from "@/lib/api";
 
 type SheetPreview = {
   sheet_name: string;
@@ -50,7 +50,7 @@ export default function JobImportPage() {
   async function previewImport() {
     const response = await fetch(`${API_BASE_URL}/api/v1/jobs/import`, {
       method: "POST",
-      headers: {"Content-Type": "application/json"},
+      headers: {"Content-Type": "application/json", ...authHeaders()},
       body: JSON.stringify({filepath})
     });
     const data = await response.json();
@@ -62,7 +62,7 @@ export default function JobImportPage() {
   async function confirmImport() {
     const response = await fetch(`${API_BASE_URL}/api/v1/jobs/import`, {
       method: "POST",
-      headers: {"Content-Type": "application/json"},
+      headers: {"Content-Type": "application/json", ...authHeaders()},
       body: JSON.stringify({filepath, sheet_name: activeSheet?.sheet_name, confirm: true})
     });
     setCounts(await response.json());

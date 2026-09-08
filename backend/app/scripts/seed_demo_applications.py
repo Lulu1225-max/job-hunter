@@ -5,8 +5,9 @@ from uuid import UUID
 
 from sqlalchemy import delete, select
 
+from app.core.config import settings
 from app.core.database import SessionLocal
-from app.core.security import DEFAULT_USER_ID
+from app.core.security import authenticate_supabase_password
 from app.models.application import Application
 from app.models.experience import Experience
 from app.models.job import Job
@@ -142,32 +143,41 @@ AI_JD_QUESTIONS = [
 
 
 def main() -> None:
+    demo_user_id, demo_email = get_demo_user_identity()
     db = SessionLocal()
     try:
-        ensure_user(db, DEFAULT_USER_ID)
-        profile_repo.upsert(db, DEFAULT_USER_ID, PROFILE)
-        seed_resume(db)
-        seed_experiences(db)
-        jobs = seed_jobs(db)
-        seed_applications_and_interview(db, jobs["腾讯"]["id"])
+        ensure_user(db, demo_user_id, email=demo_email, display_name=PROFILE["display_name"])
+        profile_repo.upsert(db, demo_user_id, PROFILE)
+        seed_resume(db, demo_user_id)
+        seed_experiences(db, demo_user_id)
+        jobs = seed_jobs(db, demo_user_id)
+        seed_applications_and_interview(db, demo_user_id, jobs["腾讯"]["id"])
         db.commit()
     finally:
         db.close()
 
 
-def seed_resume(db) -> None:
-    db.execute(delete(Resume).where(Resume.user_id == DEFAULT_USER_ID, Resume.name.in_(["Persisted Resume", "Alex Chen - AI & Product Resume"])))
-    existing = db.scalar(select(Resume).where(Resume.user_id == DEFAULT_USER_ID, Resume.name == RESUME["name"]))
+def get_demo_user_identity() -> tuple[UUID, str | None]:
+    if not settings.demo_user_email or not settings.demo_user_password:
+        raise RuntimeError("DEMO_USER_EMAIL and DEMO_USER_PASSWORD must be configured for demo seeding")
+    session = authenticate_supabase_password(settings.demo_user_email, settings.demo_user_password)
+    user = session["user"]
+    return UUID(str(user["id"])), user.get("email")
+
+
+def seed_resume(db, demo_user_id: UUID) -> None:
+    db.execute(delete(Resume).where(Resume.user_id == demo_user_id, Resume.name.in_(["Persisted Resume", "Alex Chen - AI & Product Resume"])))
+    existing = db.scalar(select(Resume).where(Resume.user_id == demo_user_id, Resume.name == RESUME["name"]))
     if existing:
-        resumes_repo.update(db, DEFAULT_USER_ID, existing.id, RESUME)
+        resumes_repo.update(db, demo_user_id, existing.id, RESUME)
     else:
-        resumes_repo.create(db, DEFAULT_USER_ID, RESUME)
+        resumes_repo.create(db, demo_user_id, RESUME)
 
 
-def seed_experiences(db) -> None:
+def seed_experiences(db, demo_user_id: UUID) -> None:
     db.execute(
         delete(Experience).where(
-            Experience.user_id == DEFAULT_USER_ID,
+            Experience.user_id == demo_user_id,
             Experience.title.in_(
                 [
                     "Database Import Project",
@@ -181,38 +191,38 @@ def seed_experiences(db) -> None:
         )
     )
     for item in EXPERIENCES:
-        existing = db.scalar(select(Experience).where(Experience.user_id == DEFAULT_USER_ID, Experience.title == item["title"]))
+        existing = db.scalar(select(Experience).where(Experience.user_id == demo_user_id, Experience.title == item["title"]))
         if existing:
-            experiences_repo.update(db, DEFAULT_USER_ID, existing.id, item)
+            experiences_repo.update(db, demo_user_id, existing.id, item)
         else:
-            experiences_repo.create(db, DEFAULT_USER_ID, item)
+            experiences_repo.create(db, demo_user_id, item)
 
 
-def seed_jobs(db) -> dict[str, dict]:
+def seed_jobs(db, demo_user_id: UUID) -> dict[str, dict]:
     wanted = {(item["company"], item["role"]) for item in JOBS}
-    stale = db.scalars(select(Job).where(Job.user_id == DEFAULT_USER_ID, Job.source == "seed_demo")).all()
+    stale = db.scalars(select(Job).where(Job.user_id == demo_user_id, Job.source == "seed_demo")).all()
     for row in stale:
         if (row.company, row.role) not in wanted:
             db.delete(row)
     db.execute(
         delete(Job).where(
-            Job.user_id == DEFAULT_USER_ID,
+            Job.user_id == demo_user_id,
             Job.source == "manual",
             Job.company == "Manual Real Job",
         )
     )
     seeded = {}
     for item in JOBS:
-        job, _ = jobs_repo.upsert(db, DEFAULT_USER_ID, item)
+        job, _ = jobs_repo.upsert(db, demo_user_id, item)
         seeded[item["company"]] = job
     return seeded
 
 
-def seed_applications_and_interview(db, tencent_job_id: str) -> None:
+def seed_applications_and_interview(db, demo_user_id: UUID, tencent_job_id: str) -> None:
     wanted = {(item["company"], item["role"]) for item in APPLICATIONS}
     stale = db.scalars(
         select(Application).where(
-            Application.user_id == DEFAULT_USER_ID,
+            Application.user_id == demo_user_id,
             Application.source == "seed_demo",
         )
     ).all()
@@ -224,7 +234,7 @@ def seed_applications_and_interview(db, tencent_job_id: str) -> None:
         payload = {**item}
         if item["company"] == "腾讯":
             payload["job_id"] = tencent_job_id
-        application = applications_repo.upsert_seed(db, DEFAULT_USER_ID, payload)
+        application = applications_repo.upsert_seed(db, demo_user_id, payload)
         if item["company"] == "腾讯":
             tencent_application_id = UUID(application["id"])
     if not tencent_application_id:
@@ -240,14 +250,14 @@ def seed_applications_and_interview(db, tencent_job_id: str) -> None:
             "notes": "腾讯 AI 产品经理实习生一面准备中。",
         },
     )
-    seed_questions(db, tencent_application_id, interview.id)
+    seed_questions(db, demo_user_id, tencent_application_id, interview.id)
 
 
-def seed_questions(db, application_id: UUID, interview_id: UUID) -> None:
+def seed_questions(db, demo_user_id: UUID, application_id: UUID, interview_id: UUID) -> None:
     for question, category in PUBLIC_QUESTIONS:
         interview_questions_repo.upsert_seed(
             db,
-            DEFAULT_USER_ID,
+            demo_user_id,
             {
                 "interview_id": interview_id,
                 "application_id": application_id,
@@ -264,7 +274,7 @@ def seed_questions(db, application_id: UUID, interview_id: UUID) -> None:
     for question, category in AI_JD_QUESTIONS:
         interview_questions_repo.upsert_seed(
             db,
-            DEFAULT_USER_ID,
+            demo_user_id,
             {
                 "interview_id": interview_id,
                 "application_id": application_id,
