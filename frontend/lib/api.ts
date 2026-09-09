@@ -31,10 +31,21 @@ export type Resume = {
   id: string;
   name: string;
   file_url: string;
+  file_type: "pdf" | "docx";
   extracted_text?: string | null;
   structured_content?: Record<string, unknown>;
+  detected_skills: DetectedSkills;
   is_default: boolean;
   created_at?: string;
+  updated_at?: string;
+};
+
+export type DetectedSkills = {
+  technical_skills: string[];
+  product_skills: string[];
+  soft_skills: string[];
+  tools: string[];
+  languages: string[];
 };
 
 export type CareerProfile = {
@@ -113,6 +124,21 @@ export async function apiSend<T>(path: string, method: string, body?: unknown): 
   }
   if (response.status === 204) {
     return undefined as T;
+  }
+  return response.json();
+}
+
+export async function apiUpload<T>(path: string, body: FormData): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: "POST",
+    headers: authHeaders(),
+    body,
+  });
+  if (!response.ok) {
+    if (response.status === 401) clearSession();
+    const payload = await response.json().catch(() => null);
+    const message = payload?.detail?.error?.message ?? `API request failed: ${response.status}`;
+    throw new Error(message);
   }
   return response.json();
 }

@@ -322,6 +322,11 @@ class ResumeRepository:
 
     def create(self, db: Session, user_id: UUID, payload: dict[str, Any]) -> dict[str, Any]:
         values = {key: value for key, value in payload.items() if value is not None}
+        values.setdefault("file_type", "pdf")
+        values.setdefault(
+            "detected_skills",
+            {"technical_skills": [], "product_skills": [], "soft_skills": [], "tools": [], "languages": []},
+        )
         if values.get("is_default"):
             self._clear_default(db, user_id)
         elif "is_default" not in values:

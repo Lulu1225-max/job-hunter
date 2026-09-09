@@ -1,0 +1,7 @@
+Extract skills that are directly supported by the supplied resume text.
+
+Include a skill only when the resume explicitly names it or provides clear evidence that the candidate used it.
+Do not infer adjacent skills, credentials, proficiency levels, or technologies that are not evidenced.
+Use concise canonical names and preserve the language used by the resume when practical.
+Place each skill in exactly one most appropriate category.
+Return empty lists when the resume provides no supported skills for a category.
