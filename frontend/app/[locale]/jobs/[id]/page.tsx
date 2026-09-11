@@ -1,9 +1,2 @@
-import {JobDetailClient} from "@/components/jobs/JobDetailClient";
-import {getDictionary, translate} from "@/lib/dictionaries";
-
-export default async function JobDetailPage({params}: {params: Promise<{locale: string; id: string}>}) {
-  const {locale, id} = await params;
-  const dictionary = await getDictionary(locale);
-  const t = (key: string) => translate(dictionary, key);
-  return <JobDetailClient id={id} locale={locale} copy={{loading: t("states.loading"), error: t("states.error"), matchResume: t("jobs.matchResume"), matched: t("jobs.matched"), missing: t("jobs.missing"), none: t("jobs.noMissing"), noDescription: t("jobs.noDescription")}} />;
-}
+import {JobDetailClient} from "@/components/jobs/JobDetailClient";import {getDictionary,translate} from "@/lib/dictionaries";
+export default async function Page({params}:{params:Promise<{locale:string;id:string}>}){const {locale,id}=await params,d=await getDictionary(locale),t=(k:string)=>translate(d,k);const keys=["company","role","location","job_url","description","deadline","job_type","industry","salary","application_start_date","campus_category","referral_available","graduation_cohort","company_type"],matchKeys=["match","checkMatch","matching","potentialMatch","semanticRelevance","limitedSignals","limitedData","resumeNeeded"];return <JobDetailClient id={id} locale={locale} copy={Object.fromEntries([["loading",t("states.loading")],["error",t("states.error")],["edit",t("jobs.edit")],["delete",t("jobs.delete")],["confirmDelete",t("jobs.confirmDelete")],["save",t("jobs.save")],["openUrl",t("jobs.openUrl")],["noDescription",t("jobs.noDescription")],["roleMissing",t("jobs.roleMissing")],["yes",t("jobs.yes")],["no",t("jobs.no")],["unknown",t("jobs.unknown")],...matchKeys.map(k=>[k,t(`jobs.${k}`)]),...keys.map(k=>[k,t(`jobs.fields.${k}`)])])}/>}

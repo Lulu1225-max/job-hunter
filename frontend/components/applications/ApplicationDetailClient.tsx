@@ -3,6 +3,7 @@
 import {useEffect, useState} from "react";
 import {apiGet, type Application} from "@/lib/api";
 import {ApplicationCard} from "@/components/applications/ApplicationCard";
+import Link from "next/link";
 
 export function ApplicationDetailClient({id, locale, copy}: {id: string; locale: string; copy: Record<string, string>}) {
   const [application, setApplication] = useState<Application | null>(null);
@@ -26,6 +27,7 @@ export function ApplicationDetailClient({id, locale, copy}: {id: string; locale:
         <p className="mt-2 text-muted">{copy.subtitle}</p>
       </div>
       <ApplicationCard application={application} locale={locale} />
+      <Link href={`/${locale}/interviews?application_id=${application.id}`} className="inline-flex rounded-md bg-brand px-4 py-2 text-sm font-medium text-white">{copy.prepareInterview}</Link>
       {application.notes && (
         <section className="rounded-lg border border-line bg-white p-5 text-sm text-muted shadow-card">
           {application.notes}

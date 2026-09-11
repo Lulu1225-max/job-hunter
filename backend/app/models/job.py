@@ -3,9 +3,10 @@ from __future__ import annotations
 from datetime import date
 from uuid import UUID, uuid4
 
-from sqlalchemy import Date, ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Date, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column
+from pgvector.sqlalchemy import Vector
 
 from app.core.database import Base
 from app.models.mixins import TimestampMixin
@@ -27,12 +28,17 @@ class Job(TimestampMixin, Base):
     description: Mapped[str | None] = mapped_column(Text)
     industry: Mapped[str | None] = mapped_column(String(250), index=True)
     job_type: Mapped[str | None] = mapped_column(String(80), index=True)
-    application_open_date: Mapped[date | None] = mapped_column(Date)
+    application_start_date: Mapped[date | None] = mapped_column(Date)
     deadline: Mapped[date | None] = mapped_column(Date, index=True)
+    campus_category: Mapped[str | None] = mapped_column(String(120))
+    referral_available: Mapped[bool | None] = mapped_column(Boolean)
     graduation_cohort: Mapped[str | None] = mapped_column(String(120), index=True)
+    company_type: Mapped[str | None] = mapped_column(String(120))
     technical_skills: Mapped[list[str]] = mapped_column(JSONB, default=list, nullable=False)
     product_skills: Mapped[list[str]] = mapped_column(JSONB, default=list, nullable=False)
     soft_skills: Mapped[list[str]] = mapped_column(JSONB, default=list, nullable=False)
     required_skills: Mapped[list[str]] = mapped_column(JSONB, default=list, nullable=False)
     education_requirements: Mapped[list[str]] = mapped_column(JSONB, default=list, nullable=False)
     source_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(1536))
+    embedding_fingerprint: Mapped[str | None] = mapped_column(String(64))

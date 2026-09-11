@@ -1,54 +1,8 @@
 "use client";
-
-import Link from "next/link";
-import {useEffect, useState} from "react";
-import {apiGet, type Job} from "@/lib/api";
-
-export function JobDetailClient({id, locale, copy}: {id: string; locale: string; copy: Record<string, string>}) {
-  const [job, setJob] = useState<Job | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    apiGet<Job>(`/api/v1/jobs/${id}`).then(setJob).catch((err) => setError(err.message)).finally(() => setLoading(false));
-  }, [id]);
-
-  if (loading) return <StateCard text={copy.loading} />;
-  if (error || !job) return <StateCard text={copy.error} />;
-  const match = job.match;
-
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
-        <div>
-          <h1 className="text-3xl font-semibold text-ink">{job.company}</h1>
-          <p className="mt-2 text-muted">{job.role}</p>
-        </div>
-        <Link href={`/${locale}/resume-match?job=${job.id}`} className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-white shadow-card">{copy.matchResume}</Link>
-      </div>
-      <section className="rounded-lg border border-line bg-white p-5 shadow-card">
-        <div className="text-sm text-muted">{[job.location, job.job_type, job.deadline].filter(Boolean).join(" · ")}</div>
-        <p className="mt-4 whitespace-pre-wrap text-sm text-muted">{job.description || copy.noDescription}</p>
-      </section>
-      {match && (
-        <section className="rounded-lg border border-line bg-white p-5 shadow-card">
-          <h2 className="text-xl font-semibold text-ink">{match.label}</h2>
-          <p className="mt-2 text-sm text-muted">{match.reason}</p>
-          <div className="mt-4 grid gap-3 md:grid-cols-3">
-            <Info title={copy.matched} text={[...match.matched_skills, ...match.location_match].join(" · ") || copy.none} />
-            <Info title={copy.missing} text={match.missing_skills.join(" · ") || copy.none} />
-            <Info title="Components" text={match.components ? Object.entries(match.components).map(([k, v]) => `${k}: ${v}`).join("\n") : match.confidence} />
-          </div>
-        </section>
-      )}
-    </div>
-  );
-}
-
-function Info({title, text}: {title: string; text: string}) {
-  return <div className="rounded-md bg-paper p-3"><div className="font-medium text-ink">{title}</div><pre className="mt-2 whitespace-pre-wrap text-sm text-muted">{text}</pre></div>;
-}
-
-function StateCard({text}: {text: string}) {
-  return <div className="rounded-lg border border-line bg-white p-8 text-center text-muted shadow-card">{text}</div>;
-}
+import {useEffect,useState} from "react";import {useRouter} from "next/navigation";import {apiGet,apiSend,type Job,type MatchInsight} from "@/lib/api";
+export function JobDetailClient({id,locale,copy}:{id:string;locale:string;copy:Record<string,string>}){const router=useRouter();const [job,setJob]=useState<Job|null>(null),[editing,setEditing]=useState(false),[error,setError]=useState(""),[match,setMatch]=useState<MatchInsight|null>(null),[matching,setMatching]=useState(false);useEffect(()=>{apiGet<Job>(`/api/v1/jobs/${id}`).then(setJob).catch(e=>setError(e.message))},[id]);if(error)return <p>{copy.error}</p>;if(!job)return <p>{copy.loading}</p>;
+ async function save(){if(!job)return;setJob(await apiSend<Job>(`/api/v1/jobs/${id}`,"PATCH",{...job,role:job.role?.trim()||null}));setEditing(false)}async function remove(){if(!window.confirm(copy.confirmDelete))return;await apiSend(`/api/v1/jobs/${id}`,"DELETE");router.push(`/${locale}/jobs`)}
+ const fields=["company","role","location","job_url","deadline","application_start_date","job_type","campus_category","referral_available","graduation_cohort","company_type","industry","salary","description"];
+ const metadata=["application_start_date","campus_category","referral_available","graduation_cohort","company_type","industry","location","job_type","deadline"];
+ async function checkMatch(){try{setMatching(true);setMatch(await apiSend<MatchInsight>(`/api/v1/jobs/${id}/discovery-match`,"POST"))}catch(e){setError((e as Error).message)}finally{setMatching(false)}}
+ return <div className="space-y-6"><div className="flex justify-between"><div><h1 className="text-3xl font-semibold">{job.company}</h1><p className="text-muted">{job.role||copy.roleMissing}</p></div><div className="space-x-2"><button onClick={checkMatch} disabled={matching} className="rounded bg-brand px-4 py-2 text-white disabled:opacity-50">{matching?copy.matching:copy.checkMatch}</button><button onClick={()=>setEditing(!editing)} className="rounded border px-4 py-2">{copy.edit}</button><button onClick={remove} className="rounded border border-red-300 px-4 py-2 text-red-700">{copy.delete}</button></div></div>{match&&<section className="rounded-lg border bg-white p-5">{match.status==="scored"?<strong>{match.overall_score}% {copy.match}</strong>:match.status==="semantic_only"?<><strong>{copy.potentialMatch}</strong><p className="mt-1 text-sm text-muted">{copy.semanticRelevance}: {match.semantic_score}% · {copy.limitedSignals}</p></>:<><strong>{match.status==="limited_data"?copy.limitedData:copy.resumeNeeded}</strong><p className="mt-1 text-sm text-muted">{match.explanation}</p></>}</section>}{editing&&<section className="grid gap-3 rounded-lg border bg-white p-5 md:grid-cols-2">{fields.map(k=><label key={k}><span className="text-sm text-muted">{copy[k]||k}</span>{k==="referral_available"?<select className="mt-1 h-10 w-full rounded border px-3" value={job.referral_available===null||job.referral_available===undefined?"":String(job.referral_available)} onChange={e=>setJob({...job,referral_available:e.target.value===""?null:e.target.value==="true"})}><option value="">{copy.unknown}</option><option value="true">{copy.yes}</option><option value="false">{copy.no}</option></select>:<input type={k==="deadline"||k==="application_start_date"?"date":"text"} className="mt-1 h-10 w-full rounded border px-3" value={String(job[k as keyof Job]||"")} onChange={e=>setJob({...job,[k]:e.target.value})}/>}</label>)}<button onClick={save} className="rounded bg-brand px-4 py-2 text-white">{copy.save}</button></section>}<section className="rounded-lg border bg-white p-5"><dl className="grid gap-3 text-sm md:grid-cols-3">{metadata.map(k=>{const value=job[k as keyof Job];return value===null||value===undefined||value===""?null:<div key={k}><dt className="text-muted">{copy[k]||k}</dt><dd className="mt-1 font-medium">{typeof value==="boolean"?(value?copy.yes:copy.no):String(value)}</dd></div>})}</dl>{job.job_url?.match(/^https?:\/\//)&&<a href={job.job_url} target="_blank" rel="noreferrer" className="mt-4 block text-brand">{copy.openUrl}</a>}<p className="mt-4 whitespace-pre-wrap text-muted">{job.description||copy.noDescription}</p></section></div>}

@@ -5,5 +5,5 @@ export default async function ResumeDetailPage({params}: {params: Promise<{local
   const {locale, id} = await params;
   const dictionary = await getDictionary(locale);
   const t = (key: string) => translate(dictionary, key);
-  return <ResumeDetailClient id={id} copy={{loading: t("states.loading"), error: t("states.error"), default: t("resumes.default"), resume: t("nav.resumes"), extractedText: t("resumes.extractedText")}} />;
+  return <ResumeDetailClient id={id} copy={{loading: t("states.loading"), error: t("states.error"), default: t("resumes.default"), resume: t("nav.resumes"), extractedText: t("resumes.extractedText"),name:t("resumes.name"),rename:t("resumes.rename"),saving:t("resumes.saving")}} />;
 }

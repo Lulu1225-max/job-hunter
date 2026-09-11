@@ -1,7 +1,13 @@
 node_modules/
 .next/
 .env
-.env.local
+.env.*
+!.env.example
+!**/.env.example
 __pycache__/
 .venv/
 .DS_Store
+.pytest_cache/
+*.py[cod]
+*.egg-info/
+.postgres-data/

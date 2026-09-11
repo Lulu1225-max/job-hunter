@@ -6,11 +6,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.api.v1 import analytics, applications, auth, experiences, jobs, profile, resumes, interviews
 
-app = FastAPI(title="JobPilot API", version="0.1.0")
+app = FastAPI(title="Job Hunter API", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:3001", settings.frontend_origin],
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

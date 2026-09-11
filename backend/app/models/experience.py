@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID, uuid4
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -22,5 +23,8 @@ class Experience(TimestampMixin, Base):
     task: Mapped[str | None] = mapped_column(Text)
     action: Mapped[str | None] = mapped_column(Text)
     result: Mapped[str | None] = mapped_column(Text)
+    reflection: Mapped[str | None] = mapped_column(Text)
     skills: Mapped[list[str]] = mapped_column(JSONB, default=list, nullable=False)
     technologies: Mapped[list[str]] = mapped_column(JSONB, default=list, nullable=False)
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(1536))
+    embedding_fingerprint: Mapped[str | None] = mapped_column(String(64))

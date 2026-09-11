@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-from app.schemas.skills import DetectedSkills
+from app.schemas.skills import DetectedResumeInformation, DetectedSkills, EducationField
 
 
 class ResumeCreate(BaseModel):
@@ -11,7 +11,7 @@ class ResumeCreate(BaseModel):
     file_type: str
     extracted_text: str | None = None
     structured_content: dict = Field(default_factory=dict)
-    detected_skills: DetectedSkills = Field(default_factory=DetectedSkills)
+    detected_skills: DetectedResumeInformation = Field(default_factory=DetectedResumeInformation)
     is_default: bool | None = None
 
 
@@ -30,3 +30,4 @@ class ResumeUpdate(BaseModel):
 
 class ConfirmResumeSkills(BaseModel):
     skills: DetectedSkills
+    education_fields: list[EducationField] = Field(default_factory=list)

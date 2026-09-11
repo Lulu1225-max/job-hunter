@@ -47,12 +47,13 @@ export function DashboardClient({locale, copy}: {locale: string; copy: Record<st
       {applications.length === 0 ? (
         <StateCard text={copy.noApplications} />
       ) : (
-        <section className="grid gap-4 md:grid-cols-2">
+        <section><h2 className="mb-3 text-xl font-semibold">{copy.recentApplications}</h2><div className="grid gap-4 md:grid-cols-2">
           {applications.map((application) => (
             <ApplicationCard key={application.id} application={application} locale={locale} />
           ))}
-        </section>
+        </div></section>
       )}
+      {applications.length>0&&<section><h2 className="mb-3 text-xl font-semibold">{copy.nextActions}</h2><div className="space-y-2">{applications.slice(0,3).map(application=><Link key={application.id} href={`/${locale}/applications/${application.id}`} className="flex items-center justify-between rounded-lg border border-line bg-white p-4 text-sm shadow-card"><span className="font-medium">{application.company} · {application.role||copy.roleMissing}</span><span className="text-brand">{copy[`action_${application.status}`]||copy.action_default}</span></Link>)}</div></section>}
     </div>
   );
 }

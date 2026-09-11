@@ -5,6 +5,7 @@ from uuid import UUID, uuid4
 from sqlalchemy import ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column
+from pgvector.sqlalchemy import Vector
 
 from app.core.database import Base
 from app.models.mixins import TimestampMixin
@@ -22,3 +23,5 @@ class Resume(TimestampMixin, Base):
     structured_content: Mapped[dict] = mapped_column(JSONB, default=dict, nullable=False)
     detected_skills: Mapped[dict] = mapped_column(JSONB, default=dict, nullable=False)
     is_default: Mapped[bool] = mapped_column(default=False, nullable=False)
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(1536))
+    embedding_fingerprint: Mapped[str | None] = mapped_column(String(64))

@@ -1,9 +1,3 @@
 import {InterviewsClient} from "@/components/interviews/InterviewsClient";
-import {getDictionary, translate} from "@/lib/dictionaries";
-
-export default async function InterviewsPage({params}: {params: Promise<{locale: string}>}) {
-  const {locale} = await params;
-  const dictionary = await getDictionary(locale);
-  const t = (key: string) => translate(dictionary, key);
-  return <InterviewsClient copy={{title: t("interviews.title"), loading: t("states.loading"), round: t("interviews.round"), type: t("interviews.type"), status: t("interviews.status"), date: t("interviews.date"), topics: t("interviews.topics"), recommendedExperiences: t("interviews.recommendedExperiences"), generate: t("interviews.generate"), practice: t("interviews.practice"), analyse: t("interviews.analyse"), publicResearch: t("interviews.publicResearch"), aiGenerated: t("interviews.aiGenerated"), answer30s: t("interviews.answer30s"), answer1min: t("interviews.answer1min"), answer2min: t("interviews.answer2min")}} />;
-}
+import {getDictionary,translate} from "@/lib/dictionaries";
+export default async function Page({params,searchParams}:{params:Promise<{locale:string}>;searchParams:Promise<{application_id?:string}>}){const {locale}=await params;const query=await searchParams;const d=await getDictionary(locale);const t=(k:string)=>translate(d,k);const keys=["title","subtitle","prep","selectApplication","questions","addQuestion","add","generateQuestions","pasteTitle","parsePreview","confirmQuestions","findExperiences","find","noExperience","generate","answer30s","answer1min","answer2min","practice","yourAnswer","analyse","strengths","weaknesses","improved","followUps","record","actualQuestions","saveInterview","history","round","type","difficulty","confidence","notes","interviewer_notes","went_well","to_improve","practiceThis","selectedQuestion","selectQuestionHint","applicationJob","outcome","roleMissing","interviewSaved","applicationRequired","noApplications","dateNotProvided","notProvided","date","missingEvidence","finding","generating","analysing","saving","source_public_research","source_ai_generated","source_user_added","source_actual_interview","outcome_pending","outcome_passed","outcome_rejected","outcome_offer","noInterviews"];return <InterviewsClient initialApplicationId={query.application_id} copy={Object.fromEntries(keys.map(k=>[k,t(`interviews.${k}`)]))}/>}

@@ -6,5 +6,6 @@ export default async function ResumeMatchPage({params, searchParams}: {params: P
   const query = await searchParams;
   const dictionary = await getDictionary(locale);
   const t = (key: string) => translate(dictionary, key);
-  return <ResumeMatchClient initialJobId={query.job} initialResumeId={query.resume} copy={{title: t("resumeMatch.title"), subtitle: t("resumeMatch.subtitle"), run: t("resumeMatch.run"), overall: t("resumeMatch.overall"), keyword: t("resumeMatch.keyword"), semantic: t("resumeMatch.semantic"), experience: t("resumeMatch.experience"), matched: t("resumeMatch.matched"), missing: t("resumeMatch.missing"), evidence: t("resumeMatch.evidence"), improvements: t("resumeMatch.improvements")}} />;
+  const keys=["title","subtitle","run","running","overall","keyword","semantic","experience","matched","missing","weakAreas","evidence","improvements","selectJob","selectResume","defaultResume","resumeRequired","roleMissing","searchJobs","noMatchingJobs","limitedData","potentialMatch","limitedSignals","keywordUnavailable","experienceUnavailable"];
+  return <ResumeMatchClient initialJobId={query.job} initialResumeId={query.resume} copy={Object.fromEntries(keys.map(key=>[key,t(`resumeMatch.${key}`)]))} />;
 }

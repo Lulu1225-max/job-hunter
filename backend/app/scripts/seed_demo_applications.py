@@ -96,11 +96,11 @@ RESUME = {
 
 
 EXPERIENCES = [
-    {"title": "AI 文档助手产品优化", "type": "实习", "description": "基于用户反馈和 bad case 推进 AI 文档助手体验优化。", "situation": "用户反馈 AI 输出不稳定，且部分结果缺乏可解释性。", "task": "定位主要问题，并提出可量化的改进方案。", "action": "整理用户反馈和 bad case，与研发共同定义评测维度，并参与 Prompt 和流程优化。", "result": "建立了一套结构化评测流程，并推动若干体验问题进入优化优先级。", "skills": ["产品分析", "LLM 评测", "沟通协作", "问题解决", "跨团队协作"], "technologies": ["LLM 应用", "Prompt Engineering"]},
-    {"title": "搜索与推荐流程优化", "type": "实习", "description": "使用 Python 和 SQL 分析搜索、筛选和推荐链路中的问题。", "situation": "用户很难找到相关内容，筛选与搜索逻辑偏僵硬。", "task": "定位问题来源，并提出可验证的产品方案。", "action": "分析用户查询和行为数据，识别失败模式，并与研发讨论筛选逻辑调整。", "result": "输出了基于用户行为数据的产品优化方案。", "skills": ["数据分析", "SQL", "产品分析", "用户研究"], "technologies": ["Python", "SQL"]},
-    {"title": "Career Copilot 项目", "type": "项目", "description": "设计 AI 求职工作台，连接职位发现、简历匹配和面试准备。", "situation": "学生求职时需要在多个工具之间切换，信息和准备过程比较割裂。", "task": "设计一个统一的 AI 求职工作台。", "action": "设计核心流程、产品模块、数据库结构、API 架构和 AI 辅助功能。", "result": "完成了可运行 MVP，串联职位发现、简历匹配、申请追踪和面试准备。", "skills": ["产品设计", "AI 应用", "API 设计", "全栈开发", "问题解决"], "technologies": ["Next.js", "FastAPI", "PostgreSQL", "Python"]},
-    {"title": "团队产品设计项目", "type": "课程", "description": "在有限周期内协调需求和优先级，完成课程 MVP。", "situation": "课程团队需要在较短时间内设计并交付一个数字服务。", "task": "协调范围、统一优先级，并推动团队按计划交付。", "action": "收集需求、拆分功能优先级、协调分歧，并跟进交付节奏。", "result": "按期完成约定的 MVP 范围，并沉淀了需求取舍经验。", "skills": ["沟通协作", "团队合作", "利益相关方管理", "优先级判断"], "technologies": ["Figma"]},
-    {"title": "未达预期的产品实验复盘", "type": "项目", "description": "复盘一次效果不及预期的产品实验，重新设计分层和验证方案。", "situation": "一次产品改动预期能提升参与度，但上线后的初步结果弱于预期。", "task": "分析结果偏差原因，并调整实验设计。", "action": "回看原始假设和用户行为，发现分层假设有误，并重新设计实验方案。", "result": "形成了更合理的实验设计，并记录了后续产品决策的复盘结论。", "skills": ["复盘", "批判性思考", "实验设计", "数据分析"], "technologies": ["SQL", "产品指标"]},
+    {"title": "AI 文档助手产品优化", "type": "internship", "description": "基于用户反馈和 bad case 推进 AI 文档助手体验优化。", "situation": "用户反馈 AI 输出不稳定，且部分结果缺乏可解释性。", "task": "定位主要问题，并提出可量化的改进方案。", "action": "整理用户反馈和 bad case，与研发共同定义评测维度，并参与 Prompt 和流程优化。", "result": "建立了一套结构化评测流程，并推动若干体验问题进入优化优先级。", "skills": ["产品分析", "LLM 评测", "沟通协作", "问题解决", "跨团队协作"], "technologies": ["LLM 应用", "Prompt Engineering"]},
+    {"title": "搜索与推荐流程优化", "type": "internship", "description": "使用 Python 和 SQL 分析搜索、筛选和推荐链路中的问题。", "situation": "用户很难找到相关内容，筛选与搜索逻辑偏僵硬。", "task": "定位问题来源，并提出可验证的产品方案。", "action": "分析用户查询和行为数据，识别失败模式，并与研发讨论筛选逻辑调整。", "result": "输出了基于用户行为数据的产品优化方案。", "skills": ["数据分析", "SQL", "产品分析", "用户研究"], "technologies": ["Python", "SQL"]},
+    {"title": "Career Copilot 项目", "type": "project", "description": "设计 AI 求职工作台，连接职位发现、简历匹配和面试准备。", "situation": "学生求职时需要在多个工具之间切换，信息和准备过程比较割裂。", "task": "设计一个统一的 AI 求职工作台。", "action": "设计核心流程、产品模块、数据库结构、API 架构和 AI 辅助功能。", "result": "完成了可运行 MVP，串联职位发现、简历匹配、申请追踪和面试准备。", "skills": ["产品设计", "AI 应用", "API 设计", "全栈开发", "问题解决"], "technologies": ["Next.js", "FastAPI", "PostgreSQL", "Python"]},
+    {"title": "团队产品设计项目", "type": "coursework", "description": "在有限周期内协调需求和优先级，完成课程 MVP。", "situation": "课程团队需要在较短时间内设计并交付一个数字服务。", "task": "协调范围、统一优先级，并推动团队按计划交付。", "action": "收集需求、拆分功能优先级、协调分歧，并跟进交付节奏。", "result": "按期完成约定的 MVP 范围，并沉淀了需求取舍经验。", "skills": ["沟通协作", "团队合作", "利益相关方管理", "优先级判断"], "technologies": ["Figma"]},
+    {"title": "未达预期的产品实验复盘", "type": "project", "description": "复盘一次效果不及预期的产品实验，重新设计分层和验证方案。", "situation": "一次产品改动预期能提升参与度，但上线后的初步结果弱于预期。", "task": "分析结果偏差原因，并调整实验设计。", "action": "回看原始假设和用户行为，发现分层假设有误，并重新设计实验方案。", "result": "形成了更合理的实验设计，并记录了后续产品决策的复盘结论。", "skills": ["复盘", "批判性思考", "实验设计", "数据分析"], "technologies": ["SQL", "产品指标"]},
 ]
 
 
@@ -146,15 +146,20 @@ def main() -> None:
     demo_user_id, demo_email = get_demo_user_identity()
     db = SessionLocal()
     try:
-        ensure_user(db, demo_user_id, email=demo_email, display_name=PROFILE["display_name"])
-        profile_repo.upsert(db, demo_user_id, PROFILE)
-        seed_resume(db, demo_user_id)
-        seed_experiences(db, demo_user_id)
-        jobs = seed_jobs(db, demo_user_id)
-        seed_applications_and_interview(db, demo_user_id, jobs["腾讯"]["id"])
+        seed_demo_state(db, demo_user_id, demo_email)
         db.commit()
     finally:
         db.close()
+
+
+def seed_demo_state(db, demo_user_id: UUID, demo_email: str | None) -> None:
+    """Restore canonical records without resolving credentials or owning the transaction."""
+    ensure_user(db, demo_user_id, email=demo_email, display_name=PROFILE["display_name"])
+    profile_repo.upsert(db, demo_user_id, PROFILE)
+    seed_resume(db, demo_user_id)
+    seed_experiences(db, demo_user_id)
+    jobs = seed_jobs(db, demo_user_id)
+    seed_applications_and_interview(db, demo_user_id, jobs["腾讯"]["id"])
 
 
 def get_demo_user_identity() -> tuple[UUID, str | None]:
@@ -243,17 +248,24 @@ def seed_applications_and_interview(db, demo_user_id: UUID, tencent_job_id: str)
         db,
         tencent_application_id,
         {
-            "round": 1,
-            "interview_type": "产品一面",
-            "scheduled_at": datetime(2026, 9, 22, 10, 0),
-            "status": "preparing",
-            "notes": "腾讯 AI 产品经理实习生一面准备中。",
+            "round": "first_round",
+            "interview_type": "product",
+            "scheduled_at": datetime(2026, 9, 8, 10, 0),
+            "status": "completed",
+            "outcome": "passed",
+            "difficulty": 4,
+            "confidence": 3,
+            "notes": "Demo 用户记录的一次模拟产品面试复盘。",
+            "interviewer_notes": "重点追问了需求优先级与跨团队协作。",
+            "went_well": "能够用真实项目说明需求梳理过程。",
+            "to_improve": "回答结果时可以更清楚地区分事实与后续设想。",
         },
     )
     seed_questions(db, demo_user_id, tencent_application_id, interview.id)
 
 
 def seed_questions(db, demo_user_id: UUID, application_id: UUID, interview_id: UUID) -> None:
+    interview_questions_repo.upsert_seed(db,demo_user_id,{"interview_id":interview_id,"application_id":application_id,"company":"腾讯","role":"AI 产品经理实习生","question":"请讲一次你处理冲突需求并推动团队达成一致的经历。","category":"Conflict / collaboration","source":"actual_interview","notes":"Demo 用户自己的面试记录。"})
     for question, category in PUBLIC_QUESTIONS:
         interview_questions_repo.upsert_seed(
             db,
@@ -283,7 +295,7 @@ def seed_questions(db, demo_user_id: UUID, application_id: UUID, interview_id: U
                 "question": question,
                 "category": category,
                 "source": "ai_generated",
-                "source_platform": "JobPilot",
+                "source_platform": "Job Hunter",
                 "notes": "根据持久化的腾讯 JD 生成。",
             },
         )

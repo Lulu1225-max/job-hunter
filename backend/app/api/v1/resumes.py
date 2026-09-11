@@ -104,7 +104,13 @@ def confirm_resume_skills(
 ) -> dict:
     ensure_user(db, user_id)
     try:
-        profile = resume_service.confirm_skills(db, user_id, resume_id, payload.skills)
+        profile = resume_service.confirm_skills(
+            db,
+            user_id,
+            resume_id,
+            payload.skills,
+            payload.education_fields,
+        )
     except ResumeUploadError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

@@ -1,6 +1,17 @@
-Extract skills that are directly supported by the supplied resume text.
+Extract education information and skills that are directly supported by the supplied resume text.
 
-Include a skill only when the resume explicitly names it or provides clear evidence that the candidate used it.
+For education:
+- Preserve the actual university, major, and specialisation names where reasonable.
+- Return null for every field that is absent or uncertain.
+- Never infer education from age, employment, internships, or general context.
+- Set graduation_year only when an explicit year or an unambiguous education end date supports it.
+- Normalize degree to Bachelor, Master, PhD, or Other.
+- Map 本科, 学士, and Bachelor variants to Bachelor.
+- Map 硕士, 研究生, and Master variants to Master.
+- Map 博士, PhD, and Doctor of Philosophy variants to PhD.
+- Use Other only for another clearly stated degree type.
+
+For skills, include a skill only when the resume explicitly names it or provides clear evidence that the candidate used it.
 Do not infer adjacent skills, credentials, proficiency levels, or technologies that are not evidenced.
 Use concise canonical names and preserve the language used by the resume when practical.
 Place each skill in exactly one most appropriate category.

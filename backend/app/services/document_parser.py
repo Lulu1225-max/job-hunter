@@ -20,7 +20,8 @@ class DocumentParser:
             text = self._extract_docx(content)
         else:
             raise DocumentParseError("Unsupported resume file type")
-        normalized = "\n".join(line.rstrip() for line in text.splitlines()).strip()
+        without_nuls = text.replace("\x00", "")
+        normalized = "\n".join(line.rstrip() for line in without_nuls.splitlines()).strip()
         if not normalized:
             raise DocumentParseError("The document contains no extractable text")
         return normalized

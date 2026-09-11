@@ -16,5 +16,6 @@ export default async function DashboardPage({params}: {params: Promise<{locale: 
     loading: t("states.loading"),
     error: t("states.error"),
     noApplications: t("states.noApplications")
+    ,recentApplications:t("dashboard.recentApplications"),nextActions:t("dashboard.nextActions"),roleMissing:t("jobs.roleMissing"),action_saved:t("dashboard.actions.saved"),action_applied:t("dashboard.actions.applied"),action_oa:t("dashboard.actions.oa"),action_interview:t("dashboard.actions.interview"),action_final_interview:t("dashboard.actions.final_interview"),action_offer:t("dashboard.actions.offer"),action_rejected:t("dashboard.actions.rejected"),action_withdrawn:t("dashboard.actions.withdrawn"),action_default:t("dashboard.actions.default")
   }} />;
 }

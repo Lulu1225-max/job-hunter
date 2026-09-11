@@ -1,24 +1,36 @@
 from __future__ import annotations
 
+import math
 import re
 from typing import Any
+from uuid import UUID
+from sqlalchemy.orm import Session
+
+from app.repositories.database import discovery_match_caches_repo, jobs_repo, profile_repo, resume_analyses_repo, resumes_repo, serialize_model
+from app.schemas.matching import MatchNarrative
+from app.services.ai.client import ai_client
+from app.services.embedding_service import embedding_service, fingerprint, job_source, resume_source
+
+ANALYSIS_VERSION = "phase5-v2"
+DISCOVERY_MATCH_VERSION = "phase5-discovery-v1"
+DISCOVERY_WEIGHTS = {"semantic": 40, "skills": 25, "role": 15, "education": 8, "location": 5, "job_type": 4, "cohort": 3}
+RESUME_MATCH_WEIGHTS = {"keyword": 35, "semantic": 40, "experience": 25}
+SKILL_ALIASES = {"js": "javascript", "ts": "typescript", "py": "python", "postgres": "postgresql", "产品经理": "product management"}
+KNOWN_SKILLS = ["Python", "Java", "JavaScript", "TypeScript", "React", "SQL", "PostgreSQL", "FastAPI", "Django", "AWS", "Azure", "GCP", "Docker", "Kubernetes", "Figma", "Tableau", "Power BI", "Excel", "用户研究", "数据分析", "产品管理"]
+RESPONSE_LANGUAGES = {"chinese", "english", "bilingual"}
 
 
 def tokens(text: str | None) -> set[str]:
     if not text:
         return set()
-    return {token.lower() for token in re.findall(r"[A-Za-z][A-Za-z+#.]*|[\u4e00-\u9fff]{2,}", text)}
+    return {token.casefold() for token in re.findall(r"[A-Za-z][A-Za-z0-9+#.]*|[\u4e00-\u9fff]{2,}", text)}
 
 
 def flatten_text(value: Any) -> str:
-    if value is None:
-        return ""
-    if isinstance(value, str):
-        return value
-    if isinstance(value, list):
-        return " ".join(flatten_text(item) for item in value)
-    if isinstance(value, dict):
-        return " ".join(flatten_text(item) for item in value.values())
+    if value is None: return ""
+    if isinstance(value, str): return value
+    if isinstance(value, list): return " ".join(flatten_text(item) for item in value)
+    if isinstance(value, dict): return " ".join(flatten_text(item) for item in value.values())
     return str(value)
 
 
@@ -26,148 +38,203 @@ def norm_list(values: list[str] | None) -> list[str]:
     return [value.strip() for value in values or [] if isinstance(value, str) and value.strip()]
 
 
+def job_value(job: Any, field: str) -> Any:
+    return job.get(field) if isinstance(job, dict) else getattr(job, field, None)
+
+
+def canonical(value: str) -> str:
+    normalized = " ".join(value.casefold().strip().split())
+    return SKILL_ALIASES.get(normalized, normalized)
+
+
 def overlap(needles: list[str], haystack_text: str) -> tuple[list[str], list[str]]:
-    lower = haystack_text.lower()
-    seen = set()
-    matched = []
+    haystack = haystack_text.casefold()
+    hay_tokens = tokens(haystack)
+    matched, missing, seen = [], [], set()
     for item in needles:
-        marker = item.lower()
-        if marker in lower and marker not in seen:
-            matched.append(item)
-            seen.add(marker)
-    missing = []
-    missing_seen = set()
-    for item in needles:
-        marker = item.lower()
-        if item not in matched and marker not in missing_seen:
-            missing.append(item)
-            missing_seen.add(marker)
+        marker = canonical(item)
+        if marker in seen: continue
+        seen.add(marker)
+        has_chinese = bool(re.search(r"[\u4e00-\u9fff]", marker))
+        present = (marker in haystack if has_chinese or " " in marker else marker in hay_tokens)
+        present = present or any(alias == marker and raw in hay_tokens for raw, alias in SKILL_ALIASES.items())
+        (matched if present else missing).append(item)
     return matched, missing
 
 
-def analyse_job_match(profile: dict | None, resume: dict | None, job: dict) -> dict[str, Any]:
-    profile = profile or {}
-    resume_text = f"{resume.get('extracted_text') or ''} {flatten_text(resume.get('structured_content')) if resume else ''}"
-    job_text = " ".join(
-        [
-            str(job.get("company") or ""),
-            str(job.get("role") or ""),
-            str(job.get("location") or ""),
-            str(job.get("industry") or ""),
-            str(job.get("job_type") or ""),
-            str(job.get("description") or ""),
-            flatten_text(job.get("required_skills")),
-            flatten_text(job.get("technical_skills")),
-            flatten_text(job.get("product_skills")),
-            flatten_text(job.get("soft_skills")),
-        ]
+def meaningful_jd(job: Any) -> bool:
+    description = " ".join(str(job_value(job, "description") or "").split())
+    chinese_characters = len(re.findall(r"[\u4e00-\u9fff]", description))
+    return len(description) >= 80 and (len(tokens(description)) >= 10 or chinese_characters >= 60)
+
+
+def cosine_score(left: list[float], right: list[float]) -> int:
+    denominator = math.sqrt(sum(v*v for v in left)) * math.sqrt(sum(v*v for v in right))
+    cosine = sum(a*b for a,b in zip(left,right)) / denominator if denominator else 0.0
+    return round(max(0.0, min(1.0, (cosine + 1.0) / 2.0)) * 100)
+
+
+def _profile_skills(profile: dict) -> list[str]:
+    result=[]
+    for key in ("technical_skills","product_skills","soft_skills","tools","languages"):
+        result.extend(norm_list(profile.get(key)))
+    return list(dict.fromkeys(result))
+
+
+def _resume_skills(resume: Any) -> list[str]:
+    detected = resume.detected_skills or {}
+    result=[]
+    for key in ("technical_skills","product_skills","soft_skills","tools","languages"):
+        result.extend(norm_list(detected.get(key)))
+    return list(dict.fromkeys(result))
+
+
+def response_language(profile: dict | None) -> str:
+    configured = str((profile or {}).get("ai_response_language") or "").casefold().strip()
+    return configured if configured in RESPONSE_LANGUAGES else "chinese"
+
+
+def fallback_narrative(language: str, matched: list[str], missing: list[str], useful: list[str]) -> MatchNarrative:
+    if language == "english":
+        explanation = "Scores are calculated from resume evidence and the job description."
+        evidence_label = "Relevant experience"
+        weak_areas = [f"Not enough verified evidence for {skill}." for skill in missing[:5]]
+        suggestions = [f"Show existing evidence for {skill}; add a measurable outcome only if you have one." for skill in missing[:3]]
+    elif language == "bilingual":
+        explanation = "评分基于简历证据和职位描述。 Scores use resume evidence and the job description."
+        evidence_label = "相关经历 / Relevant experience"
+        weak_areas = [f"缺少 {skill} 的可验证证据。 / Not enough verified evidence for {skill}." for skill in missing[:5]]
+        suggestions = [f"仅在有真实依据时补充 {skill} 的证据和可衡量结果。 / Show evidence and a measurable outcome for {skill} only if true." for skill in missing[:3]]
+    else:
+        explanation = "评分基于简历中的真实证据和职位描述计算。"
+        evidence_label = "相关经历"
+        weak_areas = [f"缺少 {skill} 的可验证证据。" for skill in missing[:5]]
+        suggestions = [f"展示已有的 {skill} 相关证据；仅在确有其事时补充可衡量的结果。" for skill in missing[:3]]
+    return MatchNarrative(
+        explanation=explanation,
+        evidence=[{"skill": next((s for s in matched if s.casefold() in p.casefold()), evidence_label), "snippet": p[:320]} for p in useful],
+        weak_areas=weak_areas,
+        rewrite_suggestions=[{"type": "证据" if language == "chinese" else "Evidence" if language == "english" else "证据 / Evidence", "text": text} for text in suggestions],
     )
-    has_deep_data = bool(job.get("description") or job.get("required_skills") or job.get("product_skills"))
-
-    candidate_skills = (
-        norm_list(profile.get("technical_skills"))
-        + norm_list(profile.get("product_skills"))
-        + norm_list(profile.get("soft_skills"))
-        + norm_list(profile.get("tools"))
-    )
-    required = (
-        norm_list(job.get("required_skills"))
-        + norm_list(job.get("technical_skills"))
-        + norm_list(job.get("product_skills"))
-        + norm_list(job.get("soft_skills"))
-    )
-    if not required and has_deep_data:
-        required = [skill for skill in candidate_skills if skill.lower() in job_text.lower()]
-
-    matched_skills, missing_skills = overlap(required, " ".join(candidate_skills) + " " + resume_text)
-    role_matches, _ = overlap(norm_list(profile.get("target_roles")), f"{job.get('role') or ''} {job.get('description') or ''}")
-    location_matches, _ = overlap(norm_list(profile.get("target_locations")), str(job.get("location") or ""))
-    job_type_matches, _ = overlap(norm_list(profile.get("preferred_job_types")), str(job.get("job_type") or ""))
-    education_matches, _ = overlap(
-        [profile.get("degree"), profile.get("major"), profile.get("specialisation")],
-        f"{flatten_text(job.get('education_requirements'))} {job_text}",
-    )
-
-    if not has_deep_data:
-        return {
-            "level": "limited",
-            "label": "潜在匹配" if location_matches or job_type_matches else "匹配信息不足",
-            "score": None,
-            "confidence": "low",
-            "matched_skills": [],
-            "missing_skills": [],
-            "location_match": location_matches,
-            "job_type_match": job_type_matches,
-            "education_match": education_matches,
-            "reason": "由于当前职位缺少完整 JD，暂时无法进行详细技能匹配。补充职位描述后可重新计算岗位匹配度。",
-        }
-
-    skill_score = round((len(matched_skills) / max(len(required), 1)) * 100)
-    job_token_set = tokens(job_text)
-    role_score = 100 if role_matches else 45 if job_token_set & {"product", "ai", "data"} else 20
-    location_score = 100 if location_matches else 40
-    job_type_score = 100 if job_type_matches else 50
-    education_score = 100 if education_matches else 65
-    resume_score = round((len(tokens(job_text) & tokens(resume_text)) / max(len(tokens(job_text)), 1)) * 100)
-    score = round(
-        role_score * 0.24
-        + skill_score * 0.28
-        + location_score * 0.12
-        + job_type_score * 0.08
-        + education_score * 0.10
-        + min(resume_score * 2, 100) * 0.18
-    )
-    return {
-        "level": "scored",
-        "label": f"{score}% 匹配",
-        "score": score,
-        "confidence": "high" if job.get("description") else "medium",
-        "components": {
-            "role_relevance": role_score,
-            "skill_match": skill_score,
-            "location_preference": location_score,
-            "job_type": job_type_score,
-            "education_relevance": education_score,
-            "resume_relevance": min(resume_score * 2, 100),
-        },
-        "matched_skills": matched_skills[:10],
-        "missing_skills": missing_skills[:8],
-        "location_match": location_matches,
-        "job_type_match": job_type_matches,
-        "education_match": education_matches,
-        "reason": "匹配度基于持久化职业档案、默认简历、职位描述、岗位要求、地点和招聘类型计算。",
-    }
 
 
-def analyse_resume_match(profile: dict | None, resume: dict, job: dict, experiences: list[dict]) -> dict[str, Any]:
-    match = analyse_job_match(profile, resume, job)
-    resume_text = f"{resume.get('extracted_text') or ''} {flatten_text(resume.get('structured_content'))}"
-    job_terms = norm_list(job.get("required_skills")) + norm_list(job.get("product_skills")) + norm_list(job.get("technical_skills"))
-    matched_keywords, missing_keywords = overlap(job_terms, resume_text)
-    evidence = retrieve_experiences(job, experiences)[:3]
-    experience_score = evidence[0]["score"] if evidence else 0
-    keyword_score = round((len(matched_keywords) / max(len(job_terms), 1)) * 100) if job_terms else 0
-    semantic_score = match.get("components", {}).get("resume_relevance", 0) if match.get("level") == "scored" else 0
-    overall = round(keyword_score * 0.35 + semantic_score * 0.30 + experience_score * 0.35)
-    return {
-        "job_id": job["id"],
-        "resume_id": resume["id"],
-        "overall_score": overall,
-        "keyword_score": keyword_score,
-        "semantic_score": semantic_score,
-        "experience_relevance_score": experience_score,
-        "matched_keywords": matched_keywords,
-        "missing_keywords": missing_keywords,
-        "matched_skills": match.get("matched_skills", []),
-        "missing_skills": match.get("missing_skills", []),
-        "strong_experience_evidence": evidence,
-        "weak_areas": missing_keywords[:5],
-        "suggested_resume_improvements": [
-            {"type": "改写已有证据", "text": "把简历中已有的 AI 产品评估、产品指标和跨团队协作经历写得更具体，方便面试官快速看到匹配点。"},
-            {"type": "缺少经历 / 证据", "text": "如果确实做过增长实验、A/B Testing 或大规模上线复盘，可以补充；如果没有，不要编造。"},
-        ],
-    }
+def _compat(preferences: list[str], actual: str | None) -> int | None:
+    if not preferences or not actual: return None
+    normalized_actual = actual.casefold().replace("市", "")
+    return 100 if any(p.casefold().replace("市", "") in normalized_actual or normalized_actual in p.casefold().replace("市", "") for p in preferences) else 0
 
+
+def _weighted(components: dict[str,int|None], weights: dict[str,int]) -> int:
+    available=[(components[k],w) for k,w in weights.items() if components.get(k) is not None]
+    return round(sum(score*w for score,w in available)/sum(w for _,w in available)) if available else 0
+
+
+def _job_skills(job: Any) -> list[str]:
+    explicit=[]
+    for key in ("required_skills","technical_skills","product_skills","soft_skills"):
+        explicit.extend(norm_list(getattr(job,key,None)))
+    # Imported metadata is accepted only when it is evidenced by the JD.
+    evidenced, _ = overlap(explicit, job.description or "")
+    detected, _ = overlap(KNOWN_SKILLS, job.description or "")
+    return list(dict.fromkeys(evidenced + detected))
+
+
+def _signals(profile: dict, job: Any) -> tuple[dict[str,int|None],list[str]]:
+    location=_compat(norm_list(profile.get("target_locations")),job_value(job,"location"))
+    job_type=_compat(norm_list(profile.get("preferred_job_types"))," ".join(filter(None,[job_value(job,"job_type"),job_value(job,"campus_category")])))
+    cohort=None
+    if profile.get("graduation_year") and job_value(job,"graduation_cohort"):
+        cohort=100 if str(profile["graduation_year"]) in job_value(job,"graduation_cohort") else 0
+    signals=[]
+    for name,value in (("location",location),("job_type",job_type),("graduation_cohort",cohort)):
+        if value == 100: signals.append(f"{name}_match")
+    return {"location":location,"job_type":job_type,"cohort":cohort},signals
+
+
+class MatchingService:
+    def readiness(self, job: Any, profile: dict | None, has_default_resume: bool) -> dict:
+        profile=profile or {}
+        compatibility,signals=_signals(profile,job)
+        if not meaningful_jd(job):
+            return {"status":"limited_data","overall_score":None,"semantic_score":None,"components":compatibility,"matched_skills":[],"missing_skills":[],"signals":signals,"missing_jd":True,"explanation":"This record needs a meaningful job description before a precise match can be calculated."}
+        if not has_default_resume:
+            return {"status":"no_resume","overall_score":None,"semantic_score":None,"components":compatibility,"matched_skills":[],"missing_skills":[],"signals":signals,"missing_jd":False,"explanation":"Set a default resume to calculate a personalized match."}
+        return {"status":"ready","overall_score":None,"semantic_score":None,"components":compatibility,"matched_skills":[],"missing_skills":[],"signals":signals,"missing_jd":False,"explanation":"Ready to calculate using the default resume."}
+
+    def discovery(self, db: Session, user_id: UUID, job_id: UUID) -> dict:
+        job=jobs_repo.get_row(db,user_id,job_id)
+        if not job: raise KeyError("Job not found")
+        profile=profile_repo.get(db,user_id) or {}
+        default=resumes_repo.default(db,user_id)
+        ready=self.readiness(job,profile,bool(default))
+        if ready["status"] == "no_resume": return ready
+        resume=resumes_repo.get(db,user_id,UUID(default["id"]))
+        resume_hash=fingerprint(resume_source(resume)); job_hash=fingerprint(job_source(job))
+        cached=discovery_match_caches_repo.current(db,user_id,resume.id,job.id,resume_hash,job_hash,DISCOVERY_MATCH_VERSION)
+        if cached: return {**cached.result_payload,"cached":True}
+        if ready["status"] != "ready":
+            result={**ready,"cached":False}
+            discovery_match_caches_repo.create(db,user_id,resume.id,job.id,resume_hash,job_hash,DISCOVERY_MATCH_VERSION,result)
+            db.commit()
+            return result
+        resume_vector,_=embedding_service.ensure_resume(db,resume)
+        job_vector,_=embedding_service.ensure_job(db,job)
+        semantic=cosine_score(resume_vector,job_vector)
+        required=_job_skills(job)
+        candidate=_profile_skills(profile)+_resume_skills(resume)
+        matched,missing=overlap(required," ".join(candidate)+" "+(resume.extracted_text or ""))
+        skills=round(len(matched)/len(required)*100) if required else None
+        role=_compat(norm_list(profile.get("target_roles")),job.role)
+        education=None
+        requirements=norm_list(job.education_requirements)
+        if requirements:
+            education=100 if overlap(requirements," ".join(str(profile.get(k) or "") for k in ("degree","major","specialisation")))[0] else 0
+        compatibility,signals=_signals(profile,job)
+        components={"semantic":semantic,"skills":skills,"role":role,"education":education,**compatibility}
+        non_semantic_available=any(components[name] is not None for name in ("skills","role","education","location","job_type","cohort"))
+        if not non_semantic_available:
+            result={"status":"semantic_only","overall_score":None,"semantic_score":semantic,"components":components,"matched_skills":matched,"missing_skills":missing,"signals":signals,"missing_jd":False,"explanation":"Semantic relevance is available, but supporting match signals are limited.","cached":False}
+        else:
+            result={"status":"scored","overall_score":_weighted(components,DISCOVERY_WEIGHTS),"semantic_score":semantic,"components":components,"matched_skills":matched,"missing_skills":missing,"signals":signals,"missing_jd":False,"explanation":"Deterministic score using semantic similarity and the available profile, skill, role, education, location, job type, and cohort signals.","cached":False}
+        discovery_match_caches_repo.create(db,user_id,resume.id,job.id,resume_hash,job_hash,DISCOVERY_MATCH_VERSION,result)
+        db.commit()
+        return result
+
+    def deep_match(self, db: Session, user_id: UUID, resume_id: UUID, job_id: UUID) -> dict:
+        resume=resumes_repo.get(db,user_id,resume_id); job=jobs_repo.get_row(db,user_id,job_id)
+        if not resume or not job: raise KeyError("Resume or job not found")
+        if not resume.extracted_text: raise ValueError("Resume has no extracted text")
+        if not meaningful_jd(job): raise ValueError("Job needs a meaningful description for Resume Match")
+        profile=profile_repo.get(db,user_id) or {}
+        language=response_language(profile)
+        resume_hash=fingerprint(resume_source(resume)); job_hash=fingerprint(job_source(job))
+        cached=resume_analyses_repo.current(db,user_id,resume_id,job_id,resume_hash,job_hash,ANALYSIS_VERSION,language)
+        if cached: return self._result(cached,True)
+        resume_vector,_=embedding_service.ensure_resume(db,resume); job_vector,_=embedding_service.ensure_job(db,job)
+        semantic=cosine_score(resume_vector,job_vector)
+        required=_job_skills(job); matched,missing=overlap(required,resume.extracted_text)
+        keyword=round(len(matched)/len(required)*100) if required else None
+        jd_tokens=tokens(job.description); paragraphs=[p.strip() for p in re.split(r"[\n。]+",resume.extracted_text) if p.strip()]
+        ranked=sorted(((len(tokens(p)&jd_tokens),p) for p in paragraphs),reverse=True)
+        useful=[p for hits,p in ranked if hits][:3]
+        experience=round(sum(min(hits,8) for hits,_ in ranked[:3])/24*100) if ranked and ranked[0][0] > 0 else None
+        has_supporting_component=keyword is not None or experience is not None
+        overall=_weighted({"keyword":keyword,"semantic":semantic,"experience":experience},RESUME_MATCH_WEIGHTS) if has_supporting_component else None
+        fallback=fallback_narrative(language,matched,missing,useful)
+        try:
+            narrative=ai_client.structured_completion(prompt_name="resume_match_analysis",schema=MatchNarrative,payload={"response_language":language,"scores":{"overall":overall,"keyword":keyword,"semantic":semantic,"experience":experience},"resume_text":resume.extracted_text[:12000],"job_text":job_source(job)[:8000],"matched_skills":matched,"missing_skills":missing})
+        except Exception:
+            narrative=fallback
+        # Structured validation checks shape; this second check enforces grounding.
+        narrative.evidence = [item for item in narrative.evidence if item.snippet.casefold() in resume.extracted_text.casefold()]
+        row=resume_analyses_repo.create(db,user_id,{"resume_id":resume_id,"job_id":job_id,"keyword_score":keyword,"semantic_score":semantic,"experience_score":experience,"overall_score":overall,"matched_keywords":matched,"missing_keywords":missing,"matched_skills":matched,"missing_skills":missing,"suggestions":[s.model_dump() for s in narrative.rewrite_suggestions],"evidence":[e.model_dump() for e in narrative.evidence],"weak_areas":narrative.weak_areas,"explanation":narrative.explanation,"resume_fingerprint":resume_hash,"job_fingerprint":job_hash,"analysis_version":ANALYSIS_VERSION,"response_language":language})
+        db.commit(); return self._result(row,False)
+
+    def _result(self,row:Any,cached:bool)->dict:
+        return {"analysis_id":str(row.id),"job_id":str(row.job_id),"resume_id":str(row.resume_id),"status":"semantic_only" if row.overall_score is None else "scored","overall_score":row.overall_score,"keyword_score":row.keyword_score,"semantic_score":row.semantic_score,"experience_relevance_score":row.experience_score,"matched_keywords":row.matched_keywords,"missing_keywords":row.missing_keywords,"matched_skills":row.matched_skills,"missing_skills":row.missing_skills,"evidence":row.evidence,"weak_areas":row.weak_areas,"explanation":row.explanation or "","suggested_resume_improvements":row.suggestions,"cached":cached,"analysis_version":row.analysis_version}
+
+
+matching_service=MatchingService()
 
 def retrieve_experiences(target: dict, experiences: list[dict]) -> list[dict[str, Any]]:
     category = str(target.get("category") or "").lower()

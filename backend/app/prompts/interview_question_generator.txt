@@ -1,0 +1,1 @@
+Generate the requested small set of practice interview questions grounded in the supplied application, job description, and profile context. Do not claim these were historically asked and do not invent company interview processes or confidential facts. Each source must be ai_generated. Follow response_language for all generated text. Return the requested structured schema.

@@ -13,7 +13,8 @@ export default async function ApplicationDetailPage({params}: {params: Promise<{
         title: t("applications.detailTitle"),
         subtitle: t("applications.detailSubtitle"),
         loading: t("states.loading"),
-        error: t("states.error")
+        error: t("states.error"),
+        prepareInterview: t("interviews.prepareInterview")
       }}
     />
   );

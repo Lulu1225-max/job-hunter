@@ -1,115 +1,37 @@
 "use client";
+import {useEffect,useMemo,useState} from "react";
+import {apiGet,apiSend,type Application,type ExperienceRecommendation} from "@/lib/api";
+import {Check} from "lucide-react";
+type Question={id:string;question:string;category:string;source:string;application_id?:string;notes?:string};
+type Interview={id:string;application_id:string;round?:string;interview_type?:string;scheduled_at?:string;status:string;outcome:string;difficulty?:number;confidence?:number;notes?:string;interviewer_notes?:string;went_well?:string;to_improve?:string;actual_questions?:Question[];application:Application};
 
-import {useEffect, useMemo, useState} from "react";
-import {apiGet, apiSend} from "@/lib/api";
-
-type Question = {id: string; question: string; category: string; source: string; source_platform?: string; source_url?: string};
-type Prep = {
-  interview: {round?: number; interview_type?: string; scheduled_at?: string; status: string};
-  application: {id: string; company: string; role?: string; status: string};
-  likely_topics: string[];
-  public_research_questions: Question[];
-  ai_generated_questions: Question[];
-  recommended_experiences: {experience_id: string; title: string; score: number; why: string}[];
-};
-
-export function InterviewsClient({copy}: {copy: Record<string, string>}) {
-  const [prep, setPrep] = useState<Prep | null>(null);
-  const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
-  const [selectedExperience, setSelectedExperience] = useState("");
-  const [answer, setAnswer] = useState<Record<string, string> | null>(null);
-  const [feedback, setFeedback] = useState<Record<string, unknown> | null>(null);
-  const [userAnswer, setUserAnswer] = useState("");
-
-  useEffect(() => {
-    apiGet<{id: string; application: {id: string; company: string}}[]>("/api/v1/interviews").then(async (items) => {
-      const tencent = items.find((item) => item.application.company.includes("腾讯") || item.application.company.toLowerCase().includes("tencent")) ?? items[0];
-      if (!tencent) return;
-      const data = await apiSend<Prep>(`/api/v1/applications/${tencent.application.id}/interview-prep`, "POST");
-      setPrep(data);
-      const first = data.public_research_questions[1] ?? data.public_research_questions[0] ?? data.ai_generated_questions[0];
-      setSelectedQuestion(first);
-      setSelectedExperience(data.recommended_experiences[0]?.experience_id ?? "");
-    });
-  }, []);
-
-  const allQuestions = useMemo(() => [...(prep?.public_research_questions ?? []), ...(prep?.ai_generated_questions ?? [])], [prep]);
-
-  async function generate() {
-    if (!selectedQuestion || !selectedExperience) return;
-    setAnswer(await apiSend<Record<string, string>>(`/api/v1/interview/questions/${selectedQuestion.id}/answers`, "POST", {experience_id: selectedExperience}));
-  }
-
-  async function analyse() {
-    if (!selectedQuestion) return;
-    setFeedback(await apiSend<Record<string, unknown>>(`/api/v1/interview/questions/${selectedQuestion.id}/analyse-answer`, "POST", {answer: userAnswer}));
-  }
-
-  if (!prep) return <div className="rounded-lg border border-line bg-white p-8 text-center text-muted shadow-card">{copy.loading}</div>;
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-semibold text-ink">{copy.title}</h1>
-        <p className="mt-2 text-muted">{prep.application.company} · {prep.application.role}</p>
-      </div>
-      <section className="grid gap-4 md:grid-cols-4">
-        <Info title={copy.round} text={`第 ${prep.interview.round ?? 1} 轮`} />
-        <Info title={copy.type} text={prep.interview.interview_type ?? ""} />
-        <Info title={copy.status} text={prep.interview.status} />
-        <Info title={copy.date} text={prep.interview.scheduled_at?.slice(0, 10) ?? ""} />
-      </section>
-      <section className="rounded-lg border border-line bg-white p-5 shadow-card">
-        <h2 className="text-lg font-semibold text-ink">{copy.topics}</h2>
-        <p className="mt-3 text-sm text-muted">{prep.likely_topics.join(" · ")}</p>
-      </section>
-      <section className="grid gap-4 lg:grid-cols-[1fr_1fr]">
-        <QuestionGroup title={copy.publicResearch} questions={prep.public_research_questions} selected={selectedQuestion?.id} onSelect={setSelectedQuestion} />
-        <QuestionGroup title={copy.aiGenerated} questions={prep.ai_generated_questions} selected={selectedQuestion?.id} onSelect={setSelectedQuestion} />
-      </section>
-      <section className="rounded-lg border border-line bg-white p-5 shadow-card">
-        <h2 className="text-lg font-semibold text-ink">{copy.recommendedExperiences}</h2>
-        <select value={selectedExperience} onChange={(event) => setSelectedExperience(event.target.value)} className="mt-3 h-10 w-full rounded-md border border-line px-3 text-sm">
-          {prep.recommended_experiences.map((item) => <option key={item.experience_id} value={item.experience_id}>{item.title} · {item.score}%</option>)}
-        </select>
-        {prep.recommended_experiences.map((item) => <p key={item.experience_id} className="mt-2 text-sm text-muted">{item.title}: {item.why}</p>)}
-        <button onClick={generate} className="mt-4 rounded-md bg-brand px-4 py-2 text-sm font-medium text-white">{copy.generate}</button>
-      </section>
-      {answer && (
-        <section className="grid gap-4 md:grid-cols-3">
-          <Info title={copy.answer30s} text={answer.answer_30s} />
-          <Info title={copy.answer1min} text={answer.answer_1min} />
-          <Info title={copy.answer2min} text={answer.answer_2min} />
-        </section>
-      )}
-      <section className="rounded-lg border border-line bg-white p-5 shadow-card">
-        <h2 className="text-lg font-semibold text-ink">{copy.practice}</h2>
-        <textarea value={userAnswer} onChange={(event) => setUserAnswer(event.target.value)} className="mt-3 min-h-28 w-full rounded-md border border-line p-3 text-sm" />
-        <button onClick={analyse} className="mt-3 rounded-md border border-line px-4 py-2 text-sm hover:border-brand hover:text-brand">{copy.analyse}</button>
-        {feedback && <pre className="mt-4 whitespace-pre-wrap rounded-md bg-paper p-3 text-sm text-muted">{JSON.stringify(feedback, null, 2)}</pre>}
-      </section>
-    </div>
-  );
+export function InterviewsClient({copy,initialApplicationId}:{copy:Record<string,string>;initialApplicationId?:string}){
+ const [apps,setApps]=useState<Application[]>([]),[history,setHistory]=useState<Interview[]>([]),[questions,setQuestions]=useState<Question[]>([]);const [appId,setAppId]=useState(initialApplicationId||"");const [recordAppId,setRecordAppId]=useState(initialApplicationId||"");const [selectedHistoryId,setSelectedHistoryId]=useState("");const [questionId,setQuestionId]=useState("");const [recommendations,setRecommendations]=useState<ExperienceRecommendation[]>([]);const [experienceId,setExperienceId]=useState("");const [answerLength,setAnswerLength]=useState("1min");const [answer,setAnswer]=useState<any>(null);const [feedback,setFeedback]=useState<any>(null);const [userAnswer,setUserAnswer]=useState("");const [manual,setManual]=useState("");const [category,setCategory]=useState("behavioral");const [pasted,setPasted]=useState("");const [preview,setPreview]=useState<any[]>([]);const [actualQuestions,setActualQuestions]=useState("");const [recordData,setRecordData]=useState({scheduled_at:"",round:"first_round",interview_type:"behavioral",difficulty:3,confidence:3,outcome:"pending",notes:"",interviewer_notes:"",went_well:"",to_improve:""});const [busy,setBusy]=useState(false);const [pendingAction,setPendingAction]=useState("");const [error,setError]=useState<string|null>(null);const [success,setSuccess]=useState<string|null>(null);
+ async function load(){const [a,h,q]=await Promise.allSettled([apiGet<Application[]>("/api/v1/applications"),apiGet<Interview[]>("/api/v1/interviews"),apiGet<Question[]>("/api/v1/interview/questions")]);if(a.status==="fulfilled")setApps(a.value);if(h.status==="fulfilled")setHistory(h.value);if(q.status==="fulfilled")setQuestions(q.value);const failure=[a,h,q].find(result=>result.status==="rejected");if(failure?.status==="rejected")setError((failure.reason as Error).message);if(initialApplicationId){setAppId(current=>current||initialApplicationId);setRecordAppId(current=>current||initialApplicationId)}}
+ useEffect(()=>{load()},[]);const appQuestions=useMemo(()=>questions.filter(q=>!appId||q.application_id===appId),[questions,appId]);const selected=questions.find(q=>q.id===questionId);const technical=selected&&["programming","data structures & algorithms","backend","database","networking","system design basics","debugging","technical"].includes(selected.category.toLowerCase())&&!/tell me about a time|describe a time|your experience|你曾经|讲一次|经历/i.test(selected.question);
+ async function act(name:string,fn:()=>Promise<void>){setBusy(true);setPendingAction(name);setError(null);try{await fn()}catch(e){setError((e as Error).message)}finally{setBusy(false);setPendingAction("")}}
+ function selectQuestion(id:string){setQuestionId(id);setRecommendations([]);setExperienceId("");setAnswer(null);setFeedback(null)}
+ const add=()=>act("add",async()=>{await apiSend("/api/v1/interview/questions","POST",{question:manual,category,source:"user_added",application_id:appId||null});setManual("");await load()});
+ const generateQuestions=()=>act("questions",async()=>{await apiSend("/api/v1/interview/questions/generate","POST",{application_id:appId,category,count:5});await load()});
+ const parse=()=>act("parse",async()=>{const r=await apiSend<any>("/api/v1/interview/questions/parse-preview","POST",{text:pasted});setPreview(r.questions)});
+ const confirm=()=>act("confirm",async()=>{await apiSend("/api/v1/interview/questions/confirm","POST",{questions:preview.map(q=>({...q,application_id:appId||null}))});setPreview([]);setPasted("");await load()});
+ const retrieve=()=>act("retrieve",async()=>{const r=await apiSend<any>(`/api/v1/interview/questions/${questionId}/experiences`,"POST",{limit:3});setRecommendations(r.recommendations);setExperienceId("")});
+ const generateAnswer=()=>act("answer",async()=>{setAnswer(await apiSend<any>(`/api/v1/interview/questions/${questionId}/answers`,"POST",{experience_id:experienceId||null,answer_length:technical?"1min":answerLength}))});
+ const analyse=()=>act("feedback",async()=>{setFeedback(await apiSend<any>(`/api/v1/interview/questions/${questionId}/feedback`,"POST",{answer:userAnswer||answer?.answer_1min,experience_id:experienceId||null,answer_id:answer?.id||null}))});
+ const record=()=>act("record",async()=>{setSuccess(null);if(!recordAppId)throw new Error(copy.applicationRequired);const saved=await apiSend<Interview>("/api/v1/interviews","POST",{application_id:recordAppId,...recordData,scheduled_at:recordData.scheduled_at||null,status:"completed",actual_questions:actualQuestions.split("\n").map(value=>value.trim()).filter(Boolean)});setHistory(current=>[saved,...current.filter(item=>item.id!==saved.id)]);setSelectedHistoryId(saved.id);setActualQuestions("");setSuccess(copy.interviewSaved);await load()});
+ const roleLabel=(role?:string|null)=>role||copy.roleMissing;
+ const applicationLabel=(application:Application)=>`${application.company} · ${roleLabel(application.role)}${application.location?` · ${application.location}`:""}`;
+ return <div className="space-y-6"><div><h1 className="text-3xl font-semibold">{copy.title}</h1><p className="mt-2 text-muted">{copy.subtitle}</p></div>{error&&<p className="text-sm text-red-700">{error}</p>}{success&&<p role="status" className="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-800">{success}</p>}
+ <section className="rounded-lg border border-line bg-white p-5 shadow-card"><h2 className="font-semibold">{copy.prep}</h2><select value={appId} onChange={e=>{setAppId(e.target.value);setQuestionId("");setRecommendations([])}} className="mt-3 h-10 w-full rounded-md border border-line px-3"><option value="">{copy.selectApplication}</option>{apps.map(a=><option key={a.id} value={a.id}>{applicationLabel(a)}</option>)}</select></section>
+ <section className="grid gap-4 lg:grid-cols-2"><div className="rounded-lg border border-line bg-white p-5 shadow-card"><h2 className="font-semibold">{copy.questions}</h2><div className="mt-3 flex gap-2"><input value={manual} onChange={e=>setManual(e.target.value)} placeholder={copy.addQuestion} className="h-10 flex-1 rounded-md border px-3"/><button disabled={busy||!manual||!appId} onClick={add} className="rounded-md border px-3">{copy.add}</button></div><div className="mt-3 flex gap-2"><input value={category} onChange={e=>setCategory(e.target.value)} className="h-10 flex-1 rounded-md border px-3"/><button disabled={busy||!appId} onClick={generateQuestions} className="rounded-md border px-3">{copy.generateQuestions}</button></div><div className="mt-3 max-h-80 space-y-2 overflow-y-auto" role="listbox" aria-label={copy.questions}>{appQuestions.map(q=>{const active=q.id===questionId;return <button key={q.id} type="button" role="option" aria-selected={active} onClick={()=>selectQuestion(q.id)} className={`flex w-full items-start gap-3 rounded-md border p-3 text-left text-sm transition ${active?"border-brand bg-skysoft ring-2 ring-blue-100":"border-line bg-white hover:border-brand hover:bg-paper"}`}><span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${active?"border-brand bg-brand text-white":"border-line text-transparent"}`}><Check className="h-3.5 w-3.5"/></span><span><span className="block text-xs font-medium text-brand">{sourceLabel(q.source,copy)} · {q.category}</span><span className="mt-1 block text-ink">{q.question}</span></span></button>})}</div></div>
+ <div className="rounded-lg border border-line bg-white p-5 shadow-card"><h2 className="font-semibold">{copy.pasteTitle}</h2><textarea value={pasted} onChange={e=>setPasted(e.target.value)} className="mt-3 min-h-24 w-full rounded-md border p-3"/><button disabled={busy||pasted.length<10} onClick={parse} className="mt-2 rounded-md border px-3 py-2">{copy.parsePreview}</button>{preview.map((q,i)=><p key={i} className="mt-2 text-sm">{q.category} · {q.question}</p>)}{preview.length>0&&<button onClick={confirm} className="mt-3 rounded-md bg-brand px-3 py-2 text-white">{copy.confirmQuestions}</button>}</div></section>
+ <section className="rounded-lg border border-line bg-white p-5 shadow-card"><h2 className="font-semibold">{copy.findExperiences}</h2>{selected?<div className="mt-3 rounded-md border border-brand bg-skysoft p-3"><span className="text-sm font-medium text-brand">{copy.selectedQuestion}</span><p className="mt-1 text-sm text-ink">“{selected.question}”</p></div>:<p className="mt-3 text-sm text-muted">{copy.selectQuestionHint}</p>}<button disabled={busy||!questionId} onClick={retrieve} className="mt-3 rounded-md border px-3 py-2 disabled:cursor-not-allowed disabled:opacity-50">{pendingAction==="retrieve"?copy.finding:copy.find}</button><div className="mt-3 grid gap-3 md:grid-cols-3">{recommendations.map(r=><button key={r.experience_id} onClick={()=>setExperienceId(r.experience_id)} className={`rounded-md border p-3 text-left ${experienceId===r.experience_id?"border-brand bg-skysoft":"border-line"}`}><b>{r.title}</b><p className="text-sm text-muted">{r.reason}</p></button>)}</div>{recommendations.length===0&&questionId&&!technical&&<p className="mt-2 text-sm text-muted">{copy.noExperience}</p>}{!technical&&<select value={answerLength} onChange={e=>setAnswerLength(e.target.value)} className="mt-4 h-10 rounded-md border px-3"><option value="30s">{copy.answer30s}</option><option value="1min">{copy.answer1min}</option><option value="2min">{copy.answer2min}</option></select>}<button disabled={busy||!questionId||(!technical&&!experienceId)} onClick={generateAnswer} className="ml-2 mt-4 rounded-md bg-brand px-4 py-2 text-white disabled:opacity-50">{pendingAction==="answer"?copy.generating:copy.generate}</button></section>
+ {answer&&<section className="grid gap-3 md:grid-cols-3"><Info title={copy.answer30s} text={answer.answer_30s}/><Info title={copy.answer1min} text={answer.answer_1min}/><Info title={copy.answer2min} text={answer.answer_2min}/></section>}
+ <section className="rounded-lg border border-line bg-white p-5 shadow-card"><h2 className="font-semibold">{copy.practice}</h2><textarea value={userAnswer} onChange={e=>setUserAnswer(e.target.value)} placeholder={copy.yourAnswer} className="mt-3 min-h-24 w-full rounded-md border p-3"/><button disabled={busy||!questionId||!(userAnswer||answer?.answer_1min)} onClick={analyse} className="mt-2 rounded-md border px-3 py-2">{pendingAction==="feedback"?copy.analysing:copy.analyse}</button>{feedback&&<div className="mt-3 text-sm"><p><b>{copy.strengths}:</b> {feedback.strengths?.join(" · ")}</p><p><b>{copy.weaknesses}:</b> {feedback.weaknesses?.join(" · ")}</p><p><b>{copy.missingEvidence}:</b> {feedback.missing_evidence?.join(" · ")||copy.notProvided}</p><p><b>{copy.improved}:</b> {feedback.improved_answer}</p><p><b>{copy.followUps}:</b> {feedback.follow_up_questions?.join(" · ")}</p></div>}</section>
+ <section className="rounded-lg border border-line bg-white p-5 shadow-card"><h2 className="font-semibold">{copy.record}</h2>{apps.length===0?<p className="mt-3 text-sm text-muted">{copy.noApplications}</p>:<div className="mt-3 space-y-3"><label className="block text-sm font-medium text-ink">{copy.applicationJob}<select value={recordAppId} onChange={e=>setRecordAppId(e.target.value)} className="mt-1 h-10 w-full rounded-md border border-line px-3"><option value="">{copy.selectApplication}</option>{apps.map(a=><option key={a.id} value={a.id}>{applicationLabel(a)}</option>)}</select></label><div className="grid gap-3 md:grid-cols-4"><L label={copy.date}><input aria-label={copy.date} type="date" value={recordData.scheduled_at} onChange={e=>setRecordData({...recordData,scheduled_at:e.target.value})} className="mt-1 h-10 w-full rounded-md border px-2"/></L><L label={copy.round}><input aria-label={copy.round} value={recordData.round} onChange={e=>setRecordData({...recordData,round:e.target.value})} className="mt-1 h-10 w-full rounded-md border px-2"/></L><L label={copy.type}><input aria-label={copy.type} value={recordData.interview_type} onChange={e=>setRecordData({...recordData,interview_type:e.target.value})} className="mt-1 h-10 w-full rounded-md border px-2"/></L><L label={copy.outcome}><select aria-label={copy.outcome} value={recordData.outcome} onChange={e=>setRecordData({...recordData,outcome:e.target.value})} className="mt-1 h-10 w-full rounded-md border px-2">{["pending","passed","rejected","offer"].map(x=><option key={x} value={x}>{copy[`outcome_${x}`]||x}</option>)}</select></L><L label={copy.difficulty}><input aria-label={copy.difficulty} type="number" min="1" max="5" value={recordData.difficulty} onChange={e=>setRecordData({...recordData,difficulty:Number(e.target.value)})} className="mt-1 h-10 w-full rounded-md border px-2"/></L><L label={copy.confidence}><input aria-label={copy.confidence} type="number" min="1" max="5" value={recordData.confidence} onChange={e=>setRecordData({...recordData,confidence:Number(e.target.value)})} className="mt-1 h-10 w-full rounded-md border px-2"/></L></div><L label={copy.notes}><textarea value={recordData.notes} onChange={e=>setRecordData({...recordData,notes:e.target.value})} className="mt-1 min-h-16 w-full rounded-md border p-2"/></L><L label={copy.interviewer_notes}><textarea value={recordData.interviewer_notes} onChange={e=>setRecordData({...recordData,interviewer_notes:e.target.value})} className="mt-1 min-h-16 w-full rounded-md border p-2"/></L><L label={copy.went_well}><textarea value={recordData.went_well} onChange={e=>setRecordData({...recordData,went_well:e.target.value})} className="mt-1 min-h-16 w-full rounded-md border p-2"/></L><L label={copy.to_improve}><textarea value={recordData.to_improve} onChange={e=>setRecordData({...recordData,to_improve:e.target.value})} className="mt-1 min-h-16 w-full rounded-md border p-2"/></L><L label={copy.actualQuestions}><textarea value={actualQuestions} onChange={e=>setActualQuestions(e.target.value)} className="mt-1 min-h-24 w-full rounded-md border p-3"/></L><button disabled={busy||!recordAppId} onClick={record} className="rounded-md border px-3 py-2 disabled:opacity-50">{pendingAction==="record"?copy.saving:copy.saveInterview}</button></div>}</section>
+ <section><h2 className="font-semibold">{copy.history}</h2><div className="mt-3 grid gap-3 md:grid-cols-2">{history.length===0&&<p className="text-sm text-muted">{copy.noInterviews}</p>}{history.map(h=>{const open=selectedHistoryId===h.id;return <article key={h.id} className="rounded-lg border bg-white p-4"><button type="button" aria-expanded={open} onClick={()=>setSelectedHistoryId(open?"":h.id)} className="w-full text-left"><b>{h.application.company} · {roleLabel(h.application.role)}</b><p className="text-sm text-muted">{h.scheduled_at?.slice(0,10)||copy.dateNotProvided} · {h.round||copy.notProvided} · {h.interview_type||copy.notProvided} · {copy[`outcome_${h.outcome}`]||h.outcome}</p></button>{open&&<div className="mt-3 border-t border-line pt-3"><p className="text-sm">{copy.difficulty}: {h.difficulty??copy.notProvided} · {copy.confidence}: {h.confidence??copy.notProvided}</p><p className="mt-2 text-sm"><b>{copy.notes}:</b> {h.notes||copy.notProvided}</p><p className="text-sm"><b>{copy.interviewer_notes}:</b> {h.interviewer_notes||copy.notProvided}</p><p className="text-sm"><b>{copy.went_well}:</b> {h.went_well||copy.notProvided}</p><p className="text-sm"><b>{copy.to_improve}:</b> {h.to_improve||copy.notProvided}</p><p className="mt-2 text-sm font-medium">{copy.actualQuestions}</p>{h.actual_questions?.length?h.actual_questions.map(q=><button key={q.id} onClick={()=>selectQuestion(q.id)} className="mt-2 block text-left text-sm text-brand">{q.question} · {copy.practiceThis}</button>):<p className="text-sm text-muted">{copy.notProvided}</p>}</div>}</article>})}</div></section></div>
 }
+function Info({title,text}:{title:string;text?:string}){return <div className="rounded-lg border bg-white p-4"><b>{title}</b><p className="mt-2 whitespace-pre-wrap text-sm">{text}</p></div>}
+function L({label,children}:{label:string;children:React.ReactNode}){return <label className="block text-sm font-medium text-ink">{label}{children}</label>}
 
-function QuestionGroup({title, questions, selected, onSelect}: {title: string; questions: Question[]; selected?: string; onSelect: (question: Question) => void}) {
-  return (
-    <section className="rounded-lg border border-line bg-white p-5 shadow-card">
-      <h2 className="text-lg font-semibold text-ink">{title}</h2>
-      <div className="mt-4 space-y-2">
-        {questions.map((question) => (
-          <button key={question.id} onClick={() => onSelect(question)} className={`w-full rounded-md border p-3 text-left text-sm ${selected === question.id ? "border-brand bg-skysoft" : "border-line"}`}>
-            <span className="font-medium text-ink">{question.category}</span>
-            <span className="ml-2 text-xs text-brand">{title}</span>
-            <span className="mt-2 block text-muted">{question.question}</span>
-            {question.source_platform && <span className="mt-2 block text-xs text-muted">{question.source_platform}</span>}
-          </button>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function Info({title, text}: {title: string; text: string}) {
-  return <div className="rounded-lg border border-line bg-white p-5 shadow-card"><div className="text-sm text-muted">{title}</div><div className="mt-2 whitespace-pre-wrap text-sm font-medium text-ink">{text}</div></div>;
-}
+function sourceLabel(source:string,copy:Record<string,string>){return copy[`source_${source}`]||source}

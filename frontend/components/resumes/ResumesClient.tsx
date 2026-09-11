@@ -8,6 +8,7 @@ import {
   apiSend,
   apiUpload,
   type CareerProfile,
+  type DetectedEducation,
   type DetectedSkills,
   type Resume,
 } from "@/lib/api";
@@ -19,6 +20,13 @@ const SKILL_CATEGORIES: (keyof DetectedSkills)[] = [
   "soft_skills",
   "tools",
   "languages",
+];
+const EDUCATION_FIELDS: (keyof DetectedEducation)[] = [
+  "university",
+  "degree",
+  "major",
+  "specialisation",
+  "graduation_year",
 ];
 
 export function ResumesClient({locale, copy}: {locale: string; copy: Record<string, string>}) {
@@ -33,6 +41,7 @@ export function ResumesClient({locale, copy}: {locale: string; copy: Record<stri
   const [profileSaved, setProfileSaved] = useState(false);
   const [preview, setPreview] = useState<Resume | null>(null);
   const [selectedSkills, setSelectedSkills] = useState<DetectedSkills>(emptySkills());
+  const [selectedEducation, setSelectedEducation] = useState<(keyof DetectedEducation)[]>([]);
   const fileInput = useRef<HTMLInputElement>(null);
 
   async function load() {
@@ -84,6 +93,7 @@ export function ResumesClient({locale, copy}: {locale: string; copy: Record<stri
       const uploaded = await apiUpload<Resume>("/api/v1/resumes/upload", form);
       setPreview(uploaded);
       setSelectedSkills(uploaded.detected_skills);
+      setSelectedEducation([]);
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : copy.uploadFailed);
@@ -100,6 +110,12 @@ export function ResumesClient({locale, copy}: {locale: string; copy: Record<stri
     });
   }
 
+  function toggleEducation(field: keyof DetectedEducation) {
+    setSelectedEducation((selected) =>
+      selected.includes(field) ? selected.filter((item) => item !== field) : [...selected, field],
+    );
+  }
+
   async function confirmSkills() {
     if (!preview) return;
     setConfirming(true);
@@ -108,7 +124,7 @@ export function ResumesClient({locale, copy}: {locale: string; copy: Record<stri
       const updated = await apiSend<CareerProfile>(
         `/api/v1/resumes/${preview.id}/confirm-skills`,
         "POST",
-        {skills: selectedSkills},
+        {skills: selectedSkills, education_fields: selectedEducation},
       );
       setProfile(normalizeProfile(updated));
       setProfileSaved(true);
@@ -126,6 +142,7 @@ export function ResumesClient({locale, copy}: {locale: string; copy: Record<stri
   }
 
   async function remove(id: string) {
+    if (!window.confirm(copy.confirmDelete)) return;
     await apiSend<void>(`/api/v1/resumes/${id}`, "DELETE");
     if (preview?.id === id) setPreview(null);
     await load();
@@ -152,6 +169,31 @@ export function ResumesClient({locale, copy}: {locale: string; copy: Record<stri
           <div>
             <h2 className="text-xl font-semibold text-ink">{copy.detectedSkillsTitle}</h2>
             <p className="mt-1 text-sm text-muted">{copy.detectedSkillsSubtitle}</p>
+          </div>
+          <div>
+            <h3 className="text-base font-semibold text-ink">{copy.educationSection}</h3>
+            <div className="mt-3 grid gap-3 md:grid-cols-2">
+              {EDUCATION_FIELDS.map((field) => {
+                const detected = preview.detected_skills.education?.[field];
+                if (detected === null || detected === undefined || detected === "") return null;
+                const current = profile[field];
+                const hasCurrent = current !== null && current !== undefined && current !== "";
+                return (
+                  <label key={field} className="cursor-pointer rounded-md border border-line p-3 text-sm">
+                    <span className="font-semibold text-ink">{educationFieldLabel(field, copy)}</span>
+                    <span className="mt-2 block text-muted">{copy.currentValue}: {hasCurrent ? String(current) : copy.emptyValue}</span>
+                    <span className="mt-1 block text-ink">{copy.detectedValue}: {String(detected)}</span>
+                    <span className="mt-3 flex items-center gap-2">
+                      <input type="checkbox" checked={selectedEducation.includes(field)} onChange={() => toggleEducation(field)} />
+                      {hasCurrent ? copy.replaceDetected : copy.addDetected}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+          <div>
+            <h3 className="text-base font-semibold text-ink">{copy.skillsSection}</h3>
           </div>
           {SKILL_CATEGORIES.map((category) => (
             <div key={category}>
@@ -247,7 +289,7 @@ export function ResumesClient({locale, copy}: {locale: string; copy: Record<stri
               <div className="mt-5 flex flex-wrap gap-2">
                 <Link href={`/${locale}/resumes/${resume.id}`} className="rounded-md border border-line px-3 py-2 text-sm">{copy.view}</Link>
                 <Link href={`/${locale}/resume-match?resume=${resume.id}`} className="rounded-md border border-line px-3 py-2 text-sm">{copy.useForMatch}</Link>
-                <button onClick={() => { setPreview(resume); setSelectedSkills(resume.detected_skills); }} className="rounded-md border border-line px-3 py-2 text-sm">{copy.reviewSkills}</button>
+                <button onClick={() => { setPreview(resume); setSelectedSkills(resume.detected_skills); setSelectedEducation([]); }} className="rounded-md border border-line px-3 py-2 text-sm">{copy.reviewSkills}</button>
                 <button onClick={() => setDefault(resume.id)} className="rounded-md border border-line px-3 py-2 text-sm">{copy.setDefault}</button>
                 <button onClick={() => remove(resume.id)} className="rounded-md border border-line px-3 py-2 text-sm text-red-600">{copy.delete}</button>
               </div>
@@ -299,6 +341,17 @@ function skillCategoryLabel(category: keyof DetectedSkills, copy: Record<string,
     languages: copy.languages,
   };
   return labels[category];
+}
+
+function educationFieldLabel(field: keyof DetectedEducation, copy: Record<string, string>) {
+  const labels: Record<keyof DetectedEducation, string> = {
+    university: copy.university,
+    degree: copy.degree,
+    major: copy.major,
+    specialisation: copy.specialisation,
+    graduation_year: copy.graduationYear,
+  };
+  return labels[field];
 }
 
 function StateCard({text, compact = false}: {text: string; compact?: boolean}) {

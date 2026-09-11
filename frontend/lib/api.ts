@@ -1,4 +1,4 @@
-import {clearSession, getAccessToken} from "@/lib/auth";
+import {clearSession, getValidAccessToken} from "@/lib/auth";
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
 
@@ -13,8 +13,15 @@ export type Job = {
   graduation_cohort?: string | null;
   job_url?: string | null;
   description?: string | null;
+  salary?: string | null;
+  application_start_date?: string | null;
+  campus_category?: string | null;
+  referral_available?: boolean | null;
+  company_type?: string | null;
   match?: MatchInsight;
 };
+
+export type JobPage = {items: Job[]; page: number; page_size: number; total: number; total_pages: number};
 
 export type Application = {
   id: string;
@@ -34,7 +41,7 @@ export type Resume = {
   file_type: "pdf" | "docx";
   extracted_text?: string | null;
   structured_content?: Record<string, unknown>;
-  detected_skills: DetectedSkills;
+  detected_skills: DetectedResumeInformation;
   is_default: boolean;
   created_at?: string;
   updated_at?: string;
@@ -46,6 +53,18 @@ export type DetectedSkills = {
   soft_skills: string[];
   tools: string[];
   languages: string[];
+};
+
+export type DetectedEducation = {
+  university: string | null;
+  degree: "Bachelor" | "Master" | "PhD" | "Other" | null;
+  major: string | null;
+  specialisation: string | null;
+  graduation_year: number | null;
+};
+
+export type DetectedResumeInformation = DetectedSkills & {
+  education: DetectedEducation;
 };
 
 export type CareerProfile = {
@@ -76,22 +95,28 @@ export type Experience = {
   task?: string | null;
   action?: string | null;
   result?: string | null;
+  reflection?: string | null;
   skills?: string[];
   technologies?: string[];
 };
 
+export type ExperienceRecommendation = {
+  experience_id: string; title: string; type: string; similarity: number;
+  relevance: "high" | "medium" | "lower"; reason: string;
+  skills: string[]; technologies: string[]; selected: false;
+};
+
 export type MatchInsight = {
-  level: "scored" | "limited";
-  label: string;
-  score?: number | null;
-  confidence: string;
+  status: "ready" | "scored" | "semantic_only" | "limited_data" | "no_resume";
+  overall_score?: number | null;
+  semantic_score?: number | null;
   matched_skills: string[];
   missing_skills: string[];
-  location_match: string[];
-  job_type_match: string[];
-  education_match: string[];
-  reason: string;
-  components?: Record<string, number>;
+  signals: string[];
+  missing_jd: boolean;
+  explanation: string;
+  components: Record<string, number | null>;
+  cached?: boolean;
 };
 
 export type DashboardOverview = {
@@ -104,24 +129,18 @@ export type DashboardOverview = {
 };
 
 export async function apiGet<T>(path: string): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {cache: "no-store", headers: authHeaders()});
-  if (!response.ok) {
-    if (response.status === 401) clearSession();
-    throw new Error(`API request failed: ${response.status}`);
-  }
+  const response = await authenticatedFetch(`${API_BASE_URL}${path}`, {cache: "no-store"});
+  if (!response.ok) throw new Error(await responseError(response));
   return response.json();
 }
 
 export async function apiSend<T>(path: string, method: string, body?: unknown): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await authenticatedFetch(`${API_BASE_URL}${path}`, {
     method,
-    headers: {"Content-Type": "application/json", ...authHeaders()},
+    headers: {"Content-Type": "application/json"},
     body: body === undefined ? undefined : JSON.stringify(body)
   });
-  if (!response.ok) {
-    if (response.status === 401) clearSession();
-    throw new Error(`API request failed: ${response.status}`);
-  }
+  if (!response.ok) throw new Error(await responseError(response));
   if (response.status === 204) {
     return undefined as T;
   }
@@ -129,21 +148,36 @@ export async function apiSend<T>(path: string, method: string, body?: unknown): 
 }
 
 export async function apiUpload<T>(path: string, body: FormData): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await authenticatedFetch(`${API_BASE_URL}${path}`, {
     method: "POST",
-    headers: authHeaders(),
     body,
   });
-  if (!response.ok) {
-    if (response.status === 401) clearSession();
-    const payload = await response.json().catch(() => null);
-    const message = payload?.detail?.error?.message ?? `API request failed: ${response.status}`;
-    throw new Error(message);
-  }
+  if (!response.ok) throw new Error(await responseError(response));
   return response.json();
 }
 
-export function authHeaders(): Record<string, string> {
-  const token = getAccessToken();
-  return token ? {Authorization: `Bearer ${token}`} : {};
+async function authenticatedFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
+  const send = async (token: string | null) => {
+    const headers = new Headers(init.headers);
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+    return fetch(input, {...init, headers});
+  };
+
+  const response = await send(await getValidAccessToken());
+  if (response.status !== 401) return response;
+
+  const refreshedToken = await getValidAccessToken(true);
+  if (!refreshedToken) return response;
+  const retried = await send(refreshedToken);
+  if (retried.status === 401) clearSession();
+  return retried;
+}
+
+async function responseError(response: Response): Promise<string> {
+  const payload = await response.json().catch(() => null);
+  const detail = payload?.detail;
+  if (typeof detail === "string") return detail;
+  if (typeof detail?.error?.message === "string") return detail.error.message;
+  if (Array.isArray(detail) && typeof detail[0]?.msg === "string") return detail[0].msg;
+  return response.status === 401 ? "Your session has expired. Please log in again." : `Request failed (${response.status}). Please try again.`;
 }

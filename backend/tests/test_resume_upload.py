@@ -17,7 +17,7 @@ from app.core import security
 from app.core.config import settings
 from app.core.database import get_db
 from app.main import app
-from app.schemas.skills import DetectedSkills
+from app.schemas.skills import DetectedEducation, DetectedResumeInformation, DetectedSkills
 from app.services.document_parser import document_parser
 from app.services.resume_service import ResumeService, ResumeUploadError
 from app.services import resume_service as resume_service_module
@@ -142,7 +142,61 @@ def test_pdf_text_extraction_reads_page_text():
     assert "Python and SQL" in text
 
 
-def test_upload_uses_authenticated_user_storage_path_and_persists_results(monkeypatch):
+def test_structured_extraction_validates_education_and_existing_skills():
+    extracted = DetectedResumeInformation.model_validate(
+        {
+            "education": {
+                "university": "The University of Sydney",
+                "degree": "Master of Computer Science",
+                "major": "Computer Science",
+                "specialisation": "Artificial Intelligence",
+                "graduation_year": 2027,
+            },
+            "technical_skills": ["Python"],
+            "product_skills": ["Product Strategy"],
+            "soft_skills": ["Communication"],
+            "tools": ["Docker"],
+            "languages": ["English"],
+        }
+    )
+
+    assert extracted.education.university == "The University of Sydney"
+    assert extracted.education.degree == "Master"
+    assert extracted.education.major == "Computer Science"
+    assert extracted.education.specialisation == "Artificial Intelligence"
+    assert extracted.education.graduation_year == 2027
+    assert extracted.technical_skills == ["Python"]
+    assert extracted.product_skills == ["Product Strategy"]
+    assert extracted.soft_skills == ["Communication"]
+    assert extracted.tools == ["Docker"]
+    assert extracted.languages == ["English"]
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("本科", "Bachelor"),
+        ("Bachelor of Science", "Bachelor"),
+        ("硕士", "Master"),
+        ("Master of Computer Science", "Master"),
+        ("PhD", "PhD"),
+    ],
+)
+def test_degree_normalization(source, expected):
+    assert DetectedEducation(degree=source).degree == expected
+
+
+def test_missing_or_unsupported_education_stays_null():
+    education = DetectedEducation(university="The University of Sydney", degree="uncertain")
+
+    assert education.university == "The University of Sydney"
+    assert education.degree is None
+    assert education.major is None
+    assert education.specialisation is None
+    assert education.graduation_year is None
+
+
+def test_upload_removes_nuls_and_persists_sanitized_extracted_text(monkeypatch):
     user_id = uuid4()
     events: list[str] = []
     rows: dict[UUID, SimpleNamespace] = {}
@@ -179,13 +233,28 @@ def test_upload_uses_authenticated_user_storage_path_and_persists_results(monkey
         def delete(self, path):
             events.append("delete")
 
+    class Profiles:
+        def get(self, db, owner_id):
+            raise AssertionError("Upload must not read or update profile education")
+
+        def upsert(self, db, owner_id, payload):
+            raise AssertionError("Upload must not update profile education")
+
     monkeypatch.setattr(resume_service_module, "resumes_repo", Repo())
     monkeypatch.setattr(resume_service_module, "resume_storage", Storage())
-    monkeypatch.setattr(resume_service_module.document_parser, "extract_text", lambda content, file_type: "Python SQL")
+    monkeypatch.setattr(resume_service_module, "profile_repo", Profiles())
+    monkeypatch.setattr(
+        resume_service_module.document_parser,
+        "_extract_pdf",
+        lambda content: "Python\x00 SQL 中文\x00",
+    )
     monkeypatch.setattr(
         resume_service_module.resume_skill_extractor,
         "extract",
-        lambda text: DetectedSkills(technical_skills=["Python", "SQL"]),
+        lambda text: DetectedResumeInformation(
+            education=DetectedEducation(university="UNSW", degree="Master"),
+            technical_skills=["Python", "SQL"],
+        ),
     )
 
     result = ResumeService().upload(
@@ -199,7 +268,9 @@ def test_upload_uses_authenticated_user_storage_path_and_persists_results(monkey
 
     assert events == ["upload", "create", "update"]
     assert result["detected_skills"]["technical_skills"] == ["Python", "SQL"]
-    assert result["extracted_text"] == "Python SQL"
+    assert result["detected_skills"]["education"]["university"] == "UNSW"
+    assert result["extracted_text"] == "Python SQL 中文"
+    assert "\x00" not in rows[next(iter(rows))].extracted_text
 
 
 def test_confirm_skills_requires_owned_resume_and_only_merges_selected(monkeypatch):
@@ -208,7 +279,14 @@ def test_confirm_skills_requires_owned_resume_and_only_merges_selected(monkeypat
     resume_id = uuid4()
     resume = SimpleNamespace(
         user_id=user_a,
-        detected_skills=DetectedSkills(
+        detected_skills=DetectedResumeInformation(
+            education=DetectedEducation(
+                university="UNSW",
+                degree="Master",
+                major="Computer Science",
+                specialisation="Artificial Intelligence",
+                graduation_year=2027,
+            ),
             technical_skills=["Python", "SQL"],
             tools=["Docker"],
         ).model_dump(),
@@ -219,6 +297,11 @@ def test_confirm_skills_requires_owned_resume_and_only_merges_selected(monkeypat
         "soft_skills": [],
         "tools": [],
         "languages": [],
+        "university": "University of Sydney",
+        "degree": "Bachelor",
+        "major": "Information Systems",
+        "specialisation": "Data Science",
+        "graduation_year": 2025,
     }
 
     class Repo:
@@ -237,11 +320,42 @@ def test_confirm_skills_requires_owned_resume_and_only_merges_selected(monkeypat
     monkeypatch.setattr(resume_service_module, "profile_repo", Profiles())
     selected = DetectedSkills(technical_skills=["Python"])
 
-    updated = ResumeService().confirm_skills(FakeDb(), user_a, resume_id, selected)
+    unconfirmed = ResumeService().confirm_skills(
+        FakeDb(),
+        user_a,
+        resume_id,
+        DetectedSkills(),
+        [],
+    )
+    assert unconfirmed["university"] == "University of Sydney"
+
+    updated = ResumeService().confirm_skills(
+        FakeDb(),
+        user_a,
+        resume_id,
+        selected,
+        ["university", "major"],
+    )
 
     assert updated["technical_skills"] == ["TypeScript", "Python"]
     assert updated["tools"] == []
-    assert ResumeService().confirm_skills(FakeDb(), user_b, resume_id, selected) is None
+    assert updated["university"] == "UNSW"
+    assert updated["major"] == "Computer Science"
+    assert updated["degree"] == "Bachelor"
+    assert updated["specialisation"] == "Data Science"
+    assert updated["graduation_year"] == 2025
+
+    remaining = ResumeService().confirm_skills(
+        FakeDb(),
+        user_a,
+        resume_id,
+        DetectedSkills(),
+        ["degree", "specialisation", "graduation_year"],
+    )
+    assert remaining["degree"] == "Master"
+    assert remaining["specialisation"] == "Artificial Intelligence"
+    assert remaining["graduation_year"] == 2027
+    assert ResumeService().confirm_skills(FakeDb(), user_b, resume_id, selected, []) is None
 
 
 def test_user_b_cannot_access_user_a_resume(authenticated_app, monkeypatch):

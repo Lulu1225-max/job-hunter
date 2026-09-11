@@ -1,5 +1,6 @@
 from app.models.application import Application
 from app.models.career_profile import CareerProfile
+from app.models.discovery_match_cache import DiscoveryMatchCache
 from app.models.experience import Experience
 from app.models.interview import Interview
 from app.models.interview_answer import InterviewAnswer
@@ -13,6 +14,7 @@ from app.models.user import User
 __all__ = [
     "Application",
     "CareerProfile",
+    "DiscoveryMatchCache",
     "Experience",
     "Interview",
     "InterviewAnswer",

@@ -1,108 +1,89 @@
-from __future__ import annotations
-
 from uuid import UUID
-
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter,Depends,HTTPException,Query,Response
 from sqlalchemy.orm import Session
-
+from sqlalchemy.exc import SQLAlchemyError
 from app.core.database import get_db
 from app.core.security import get_current_user_id
-from app.repositories.database import (
-    ensure_user,
-    experiences_repo,
-    interview_answers_repo,
-    interview_questions_repo,
-    interviews_repo,
-    serialize_model,
-)
-from app.services.matching import analyse_user_answer, generate_answer, retrieve_experiences
+from app.repositories.database import ensure_user
+from app.schemas.interviews import *
+from app.services.interview_service import interview_service
 
-router = APIRouter()
-
+router=APIRouter()
+def fail(exc):
+    if isinstance(exc,KeyError):raise HTTPException(404,detail={"error":{"code":"NOT_FOUND","message":str(exc).strip("'")}})
+    if isinstance(exc,ValueError):raise HTTPException(422,detail={"error":{"code":"INVALID_INTERVIEW_REQUEST","message":str(exc)}})
+    raise HTTPException(503,detail={"error":{"code":"AI_UNAVAILABLE","message":"Interview AI is temporarily unavailable"}})
 
 @router.get("/interviews")
-def list_interviews(db: Session = Depends(get_db), user_id: UUID = Depends(get_current_user_id)) -> list[dict]:
-    ensure_user(db, user_id)
-    return interviews_repo.list(db, user_id)
-
-
+def list_interviews(db:Session=Depends(get_db),user_id:UUID=Depends(get_current_user_id)):
+    ensure_user(db,user_id);return interview_service.list(db,user_id)
+@router.post("/interviews")
+def create_interview(payload:InterviewCreate,db:Session=Depends(get_db),user_id:UUID=Depends(get_current_user_id)):
+    ensure_user(db,user_id)
+    try:return interview_service.create_interview(db,user_id,payload.model_dump())
+    except (KeyError,ValueError) as exc:return fail(exc)
+    except SQLAlchemyError:
+        db.rollback()
+        raise HTTPException(500,detail={"error":{"code":"INTERVIEW_SAVE_FAILED","message":"The interview could not be saved. Please try again."}})
+@router.get("/interviews/{interview_id}")
+def get_interview(interview_id:UUID,db:Session=Depends(get_db),user_id:UUID=Depends(get_current_user_id)):
+    ensure_user(db,user_id)
+    try:return interview_service.get_interview(db,user_id,interview_id)
+    except Exception as exc:return fail(exc)
+@router.patch("/interviews/{interview_id}")
+def update_interview(interview_id:UUID,payload:InterviewUpdate,db:Session=Depends(get_db),user_id:UUID=Depends(get_current_user_id)):
+    ensure_user(db,user_id);result=interview_service.update_interview(db,user_id,interview_id,payload.model_dump(exclude_unset=True))
+    if not result:raise HTTPException(404,detail="Interview not found")
+    return result
+@router.delete("/interviews/{interview_id}",status_code=204)
+def delete_interview(interview_id:UUID,db:Session=Depends(get_db),user_id:UUID=Depends(get_current_user_id)):
+    ensure_user(db,user_id)
+    if not interview_service.delete_interview(db,user_id,interview_id):raise HTTPException(404,detail="Interview not found")
+    return Response(status_code=204)
 @router.post("/applications/{application_id}/interview-prep")
-def prepare_interview(application_id: UUID, db: Session = Depends(get_db), user_id: UUID = Depends(get_current_user_id)) -> dict:
-    ensure_user(db, user_id)
-    interview = interviews_repo.get_by_application(db, user_id, application_id)
-    if not interview:
-        return {"application_id": str(application_id), "questions": [], "likely_topics": [], "recommended_experiences": []}
-    application = interview["application"]
-    questions = interview_questions_repo.list_for_application(db, user_id, application_id)
-    experiences = experiences_repo.list(db, user_id)
-    target = {"company": application["company"], "role": application["role"], "questions": questions}
-    return {
-        "interview": interview,
-        "application": application,
-        "likely_topics": [
-            "Product Thinking",
-            "AI Product Understanding",
-            "User Growth / Retention",
-            "Product Metrics",
-            "Product Case Analysis",
-            "Cross-functional Collaboration",
-            "Stakeholder Management",
-            "Behavioural Reflection",
-            "Company Motivation",
-            "Career Motivation",
-        ],
-        "public_research_questions": [q for q in questions if q["source"] == "public_research"],
-        "ai_generated_questions": [q for q in questions if q["source"] == "ai_generated"],
-        "user_added_questions": [q for q in questions if q["source"] == "user_added"],
-        "recommended_experiences": retrieve_experiences(target, experiences)[:4],
-    }
-
-
+def prep(application_id:UUID,db:Session=Depends(get_db),user_id:UUID=Depends(get_current_user_id)):
+    ensure_user(db,user_id)
+    try:return interview_service.prep(db,user_id,application_id)
+    except Exception as exc:return fail(exc)
+@router.get("/interview/questions")
+def questions(category:str|None=None,source:str|None=None,application_id:UUID|None=None,db:Session=Depends(get_db),user_id:UUID=Depends(get_current_user_id)):
+    ensure_user(db,user_id);return interview_service.questions(db,user_id,category,source,application_id)
 @router.post("/interview/questions")
-def add_question(payload: dict, db: Session = Depends(get_db), user_id: UUID = Depends(get_current_user_id)) -> dict:
-    ensure_user(db, user_id)
-    question = interview_questions_repo.create(db, user_id, payload)
-    db.commit()
-    return question
-
-
-@router.get("/interview/questions/{question_id}/experiences")
-def question_experiences(question_id: UUID, db: Session = Depends(get_db), user_id: UUID = Depends(get_current_user_id)) -> dict:
-    ensure_user(db, user_id)
-    question = interview_questions_repo.get(db, user_id, question_id)
-    if not question:
-        raise HTTPException(status_code=404, detail={"error": {"code": "QUESTION_NOT_FOUND", "message": "Question not found"}})
-    experiences = experiences_repo.list(db, user_id)
-    return {"question": serialize_model(question), "recommended_experiences": retrieve_experiences(serialize_model(question), experiences)[:4]}
-
-
+def add_question(payload:QuestionCreate,db:Session=Depends(get_db),user_id:UUID=Depends(get_current_user_id)):
+    ensure_user(db,user_id)
+    try:return interview_service.add_question(db,user_id,payload.model_dump())
+    except Exception as exc:return fail(exc)
+@router.post("/interview/questions/parse-preview")
+def parse_questions(payload:ParseQuestionsRequest,db:Session=Depends(get_db),user_id:UUID=Depends(get_current_user_id)):
+    ensure_user(db,user_id)
+    try:return interview_service.parse(db,user_id,payload.text)
+    except Exception as exc:return fail(exc)
+@router.post("/interview/questions/confirm")
+def confirm_questions(payload:ConfirmQuestionsRequest,db:Session=Depends(get_db),user_id:UUID=Depends(get_current_user_id)):
+    ensure_user(db,user_id)
+    try:return interview_service.confirm_questions(db,user_id,[item.model_dump() for item in payload.questions])
+    except Exception as exc:return fail(exc)
+@router.post("/interview/questions/generate")
+def generate_questions(payload:GenerateQuestionsRequest,db:Session=Depends(get_db),user_id:UUID=Depends(get_current_user_id)):
+    ensure_user(db,user_id)
+    try:return interview_service.generate_questions(db,user_id,payload.application_id,payload.category,payload.count)
+    except Exception as exc:return fail(exc)
+@router.post("/interview/questions/{question_id}/experiences")
+def retrieve(question_id:UUID,payload:RetrieveForQuestionRequest,db:Session=Depends(get_db),user_id:UUID=Depends(get_current_user_id)):
+    ensure_user(db,user_id)
+    try:return interview_service.retrieve(db,user_id,question_id,payload.limit)
+    except Exception as exc:return fail(exc)
 @router.post("/interview/questions/{question_id}/answers")
-def create_answer(question_id: UUID, payload: dict, db: Session = Depends(get_db), user_id: UUID = Depends(get_current_user_id)) -> dict:
-    ensure_user(db, user_id)
-    question = interview_questions_repo.get(db, user_id, question_id)
-    if not question:
-        raise HTTPException(status_code=404, detail={"error": {"code": "QUESTION_NOT_FOUND", "message": "Question not found"}})
-    experience_id = payload.get("experience_id")
-    experience = experiences_repo.get(db, user_id, UUID(experience_id)) if experience_id else None
-    if not experience:
-        raise HTTPException(status_code=404, detail={"error": {"code": "EXPERIENCE_NOT_FOUND", "message": "Experience not found"}})
-    generated = generate_answer(serialize_model(question), serialize_model(experience))
-    answer = interview_answers_repo.create(db, {"question_id": question_id, "experience_id": experience.id, **generated})
-    db.commit()
-    return answer
-
-
+def answer(question_id:UUID,payload:GenerateAnswerRequest,db:Session=Depends(get_db),user_id:UUID=Depends(get_current_user_id)):
+    ensure_user(db,user_id)
+    try:return interview_service.generate_answer(db,user_id,question_id,payload.experience_id,payload.answer_length)
+    except Exception as exc:return fail(exc)
+@router.post("/interview/questions/{question_id}/feedback")
+def feedback(question_id:UUID,payload:FeedbackRequest,db:Session=Depends(get_db),user_id:UUID=Depends(get_current_user_id)):
+    ensure_user(db,user_id)
+    try:return interview_service.feedback(db,user_id,question_id,payload.answer,payload.experience_id,payload.answer_id)
+    except Exception as exc:return fail(exc)
+# Compatibility alias for the previous user-answer endpoint.
 @router.post("/interview/questions/{question_id}/analyse-answer")
-def analyse_answer(question_id: UUID, payload: dict, db: Session = Depends(get_db), user_id: UUID = Depends(get_current_user_id)) -> dict:
-    ensure_user(db, user_id)
-    question = interview_questions_repo.get(db, user_id, question_id)
-    if not question:
-        raise HTTPException(status_code=404, detail={"error": {"code": "QUESTION_NOT_FOUND", "message": "Question not found"}})
-    return analyse_user_answer(str(payload.get("answer", "")), serialize_model(question), experiences_repo.list(db, user_id))
-
-
-@router.post("/interview/questions/import")
-def import_questions(payload: dict) -> dict:
-    raw = str(payload.get("text", ""))
-    parsed = [{"question": line.strip(" -\t"), "source": "user_added"} for line in raw.splitlines() if line.strip("?？ ")]
-    return {"questions": parsed, "requires_confirmation": True}
+def analyse(question_id:UUID,payload:FeedbackRequest,db:Session=Depends(get_db),user_id:UUID=Depends(get_current_user_id)):
+    return feedback(question_id,payload,db,user_id)

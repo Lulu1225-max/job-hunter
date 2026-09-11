@@ -1,115 +1,23 @@
 "use client";
-
 import Link from "next/link";
-import {useEffect, useMemo, useState} from "react";
-import {Upload} from "lucide-react";
-import {Badge} from "@/components/ui/Badge";
-import {apiGet, type Job} from "@/lib/api";
+import {useEffect,useRef,useState} from "react";
+import {Plus,Upload} from "lucide-react";
+import {apiGet,apiSend,type Job,type JobPage} from "@/lib/api";
 
-export function JobsClient({locale, copy}: {locale: string; copy: Record<string, string>}) {
-  const [jobs, setJobs] = useState<Job[]>([]);
-  const [keyword, setKeyword] = useState("");
-  const [sort, setSort] = useState("recommended");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+const empty={company:"",role:"",location:"",job_url:"",description:"",deadline:"",job_type:"",industry:"",salary:"",application_start_date:"",campus_category:"",referral_available:"",graduation_cohort:"",company_type:""};
 
-  useEffect(() => {
-    const params = new URLSearchParams();
-    if (keyword.trim()) params.set("keyword", keyword.trim());
-    params.set("sort", sort);
-    setLoading(true);
-    apiGet<Job[]>(`/api/v1/jobs${params.size ? `?${params}` : ""}`)
-      .then(setJobs)
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
-  }, [keyword, sort]);
-
-  const visibleJobs = useMemo(() => jobs, [jobs]);
-  const recommendedJobs = visibleJobs.filter((job) => job.match?.level === "scored").slice(0, 3);
-
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
-        <div>
-          <h1 className="text-3xl font-semibold text-ink">{copy.title}</h1>
-          <p className="mt-2 text-muted">{copy.subtitle}</p>
-        </div>
-        <Link href={`/${locale}/jobs/import`} className="focus-ring inline-flex h-10 items-center gap-2 rounded-md bg-brand px-4 text-sm font-medium text-white shadow-card hover:bg-blue-700">
-          <Upload className="h-4 w-4" />
-          {copy.import}
-        </Link>
-      </div>
-      <section className="rounded-lg border border-line bg-white p-4 shadow-card">
-        <div className="grid gap-3 md:grid-cols-[1fr_220px]">
-          <input
-            value={keyword}
-            onChange={(event) => setKeyword(event.target.value)}
-            className="h-10 w-full rounded-md border border-line bg-white px-3 text-sm outline-none focus:border-brand focus:ring-4 focus:ring-blue-100"
-            placeholder={copy.keyword}
-          />
-          <select value={sort} onChange={(event) => setSort(event.target.value)} className="h-10 rounded-md border border-line bg-white px-3 text-sm outline-none focus:border-brand focus:ring-4 focus:ring-blue-100">
-            <option value="recommended">{copy.sortRecommended}</option>
-            <option value="match_score">{copy.sortMatch}</option>
-            <option value="deadline">{copy.sortDeadline}</option>
-            <option value="newest">{copy.sortNewest}</option>
-          </select>
-        </div>
-      </section>
-      {loading && <StateCard text={copy.loading} />}
-      {error && <StateCard text={copy.error} />}
-      {!loading && !error && visibleJobs.length === 0 && <StateCard text={copy.empty} />}
-      {!loading && !error && recommendedJobs.length > 0 && (
-        <section className="space-y-3">
-          <h2 className="text-sm font-semibold uppercase tracking-normal text-muted">{copy.recommended}</h2>
-          {recommendedJobs.map((job) => <JobCard key={job.id} job={job} locale={locale} copy={copy} />)}
-        </section>
-      )}
-      <section className="space-y-3">
-        {visibleJobs.length > 0 && <h2 className="text-sm font-semibold uppercase tracking-normal text-muted">{copy.allJobs}</h2>}
-        {visibleJobs.map((job) => <JobCard key={job.id} job={job} locale={locale} copy={copy} />)}
-      </section>
-    </div>
-  );
+export function JobsClient({locale,copy}:{locale:string;copy:Record<string,string>}){
+ const [jobs,setJobs]=useState<Job[]>([]),[keyword,setKeyword]=useState(""),[error,setError]=useState<string|null>(null),[matching,setMatching]=useState<string|null>(null),[loading,setLoading]=useState(true);
+ const [adding,setAdding]=useState(false),[form,setForm]=useState(empty),[page,setPage]=useState(1),[pageSize,setPageSize]=useState(20),[total,setTotal]=useState(0),[totalPages,setTotalPages]=useState(0),[refresh,setRefresh]=useState(0);
+ const requestSequence=useRef(0);
+ useEffect(()=>{const sequence=++requestSequence.current;setLoading(true);const timer=window.setTimeout(async()=>{try{const params=new URLSearchParams({page:String(page),page_size:String(pageSize)});if(keyword.trim())params.set("q",keyword.trim());const result=await apiGet<JobPage>(`/api/v1/jobs?${params}`);if(sequence===requestSequence.current){setJobs(result.items);setTotal(result.total);setTotalPages(result.total_pages);setError(null)}}catch(e){if(sequence===requestSequence.current)setError((e as Error).message)}finally{if(sequence===requestSequence.current)setLoading(false)}},300);return()=>window.clearTimeout(timer)},[keyword,page,pageSize,refresh]);
+ async function create(){try{await apiSend("/api/v1/jobs","POST",{...form,role:form.role.trim()||null,referral_available:form.referral_available===""?null:form.referral_available==="true"});setForm(empty);setAdding(false);setPage(1);setRefresh(value=>value+1)}catch(e){setError((e as Error).message)}}
+ return <div className="space-y-6"><div className="flex flex-wrap items-end justify-between gap-3"><div><h1 className="text-3xl font-semibold text-ink">{copy.title}</h1><p className="mt-2 text-muted">{copy.subtitle}</p></div><div className="flex gap-2"><button onClick={()=>setAdding(!adding)} className="rounded-md border border-line px-4 py-2 text-sm"><Plus className="mr-2 inline h-4 w-4"/>{copy.add}</button><Link href={`/${locale}/jobs/import`} className="rounded-md bg-brand px-4 py-2 text-sm text-white"><Upload className="mr-2 inline h-4 w-4"/>{copy.import}</Link></div></div>
+ {adding&&<section className="rounded-lg border border-line bg-white p-5 shadow-card"><div className="grid gap-3 md:grid-cols-2">{Object.keys(empty).map(k=><label key={k} className={k==="description"?"md:col-span-2":""}><span className="mb-1 block text-sm text-muted">{copy[k]||k}</span>{k==="description"?<textarea className="w-full rounded-md border p-2" value={form[k as keyof typeof form]} onChange={e=>setForm({...form,[k]:e.target.value})}/>:k==="referral_available"?<select className="h-10 w-full rounded-md border px-3" value={form.referral_available} onChange={e=>setForm({...form,referral_available:e.target.value})}><option value="">{copy.unknown}</option><option value="true">{copy.yes}</option><option value="false">{copy.no}</option></select>:<input type={k==="deadline"||k==="application_start_date"?"date":"text"} className="h-10 w-full rounded-md border px-3" value={form[k as keyof typeof form]} onChange={e=>setForm({...form,[k]:e.target.value})}/>}</label>)}</div><button disabled={!form.company.trim()} onClick={create} className="mt-4 rounded-md bg-brand px-4 py-2 text-white disabled:opacity-50">{copy.save}</button></section>}
+ <div className="flex gap-3"><input value={keyword} onChange={e=>{setKeyword(e.target.value);setPage(1)}} placeholder={copy.keyword} className="h-10 w-full rounded-md border border-line px-3"/><select value={pageSize} onChange={e=>{setPageSize(Number(e.target.value));setPage(1)}} className="h-10 rounded-md border border-line px-3"><option value={20}>20</option><option value={50}>50</option></select></div>{error&&<p className="text-red-700">{error}</p>}
+ <section className="space-y-3">{loading&&<div className="rounded-lg border bg-white p-8 text-center text-muted">{copy.loading}</div>}{!loading&&jobs.length===0&&<div className="rounded-lg border bg-white p-8 text-center text-muted">{keyword.trim()?copy.noMatches:copy.empty}</div>}{!loading&&jobs.map(job=><article key={job.id} className="rounded-lg border border-line bg-white p-5 shadow-card hover:border-brand"><Link href={`/${locale}/jobs/${job.id}`}><h2 className="text-xl font-semibold">{job.company}</h2><p className="mt-1 text-muted">{job.role||copy.roleMissing}</p><p className="mt-3 text-sm text-muted">{[job.location,job.job_type,job.campus_category,job.graduation_cohort,job.deadline].filter(Boolean).join(" · ")||copy.metaMissing}</p></Link><div className="mt-4 border-t border-line pt-3"><MatchSummary match={job.match} copy={copy}/>{job.match?.status==="ready"&&<button disabled={matching===job.id} onClick={async()=>{try{setMatching(job.id);const match=await apiSend<Job["match"]>(`/api/v1/jobs/${job.id}/discovery-match`,"POST");setJobs(current=>current.map(item=>item.id===job.id?{...item,match}:item))}catch(e){setError((e as Error).message)}finally{setMatching(null)}}} className="mt-2 rounded-md bg-brand px-3 py-2 text-sm text-white disabled:opacity-50">{matching===job.id?copy.matching:copy.checkMatch}</button>}</div></article>)}</section>
+ {!loading&&total>0&&<div className="flex items-center justify-between gap-3"><span className="text-sm text-muted">{copy.total.replace("{count}",String(total))}</span><div className="flex items-center gap-3"><button disabled={page<=1} onClick={()=>setPage(value=>value-1)} className="rounded border px-3 py-2 text-sm disabled:opacity-40">{copy.previous}</button><span className="text-sm">{copy.pageOf.replace("{page}",String(page)).replace("{totalPages}",String(totalPages))}</span><button disabled={page>=totalPages} onClick={()=>setPage(value=>value+1)} className="rounded border px-3 py-2 text-sm disabled:opacity-40">{copy.next}</button></div></div>}
+ </div>
 }
 
-function JobCard({job, locale, copy}: {job: Job; locale: string; copy: Record<string, string>}) {
-  const match = job.match;
-  return (
-    <Link href={`/${locale}/jobs/${job.id}`} className="block rounded-lg border border-line bg-white p-5 shadow-card transition hover:border-brand hover:shadow-md">
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h2 className="text-xl font-semibold text-ink">{job.company}</h2>
-          <p className="mt-1 text-muted">{job.role || copy.roleMissing}</p>
-          <p className="mt-3 text-sm text-muted">
-            {[job.location, job.industry, job.graduation_cohort].filter(Boolean).join(" · ") || copy.metaMissing}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3 md:justify-end">
-          {match && <div className={`rounded-md px-3 py-2 text-sm font-semibold ${match.level === "scored" ? "bg-mintsoft text-emerald-700" : "bg-skysoft text-brand"}`}>{match.label}</div>}
-          {job.job_type && <Badge value={job.job_type}>{job.job_type}</Badge>}
-          {job.deadline && <div className="rounded-md border border-amber-200 bg-ambersoft px-3 py-2 text-sm text-amber-800">{copy.deadline}: {job.deadline}</div>}
-        </div>
-      </div>
-      {match && (
-        <div className="mt-4 grid gap-3 text-sm md:grid-cols-3">
-          <MatchList title={copy.matched} items={[...(match.matched_skills || []), ...(match.location_match || [])]} fallback={match.reason} />
-          <MatchList title={copy.missing} items={match.missing_skills || []} fallback={copy.noMissing} />
-          <div className="rounded-md bg-paper p-3 text-muted">{match.reason}</div>
-        </div>
-      )}
-    </Link>
-  );
-}
-
-function MatchList({title, items, fallback}: {title: string; items: string[]; fallback: string}) {
-  return (
-    <div className="rounded-md bg-paper p-3">
-      <div className="font-medium text-ink">{title}</div>
-      <div className="mt-2 text-muted">{items.length ? items.join(" · ") : fallback}</div>
-    </div>
-  );
-}
-
-function StateCard({text}: {text: string}) {
-  return <div className="rounded-lg border border-line bg-white p-8 text-center text-muted shadow-card">{text}</div>;
-}
+function MatchSummary({match,copy}:{match:Job["match"];copy:Record<string,string>}){if(!match)return null;if(match.status==="scored")return <div><strong>{match.overall_score}% {copy.match}</strong><p className="mt-1 text-sm text-muted">{match.matched_skills.slice(0,3).join(" · ")||copy.noSkillSignals}</p></div>;if(match.status==="semantic_only")return <div><strong>{copy.potentialMatch}</strong><p className="mt-1 text-sm text-muted">{copy.semanticRelevance}: {match.semantic_score}% · {copy.limitedSignals}</p></div>;if(match.status==="limited_data")return <div><strong>{copy.limitedData}</strong><p className="mt-1 text-sm text-muted">{copy.limitedExplanation}</p></div>;if(match.status==="no_resume")return <p className="text-sm text-muted">{copy.resumeNeeded}</p>;return <p className="text-sm text-muted">{copy.readyToMatch}</p>}

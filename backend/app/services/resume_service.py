@@ -7,11 +7,12 @@ from uuid import UUID, uuid4
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.repositories.database import profile_repo, resumes_repo
-from app.schemas.skills import DetectedSkills
+from app.repositories.database import profile_repo, resumes_repo, serialize_model
+from app.schemas.skills import DetectedResumeInformation, DetectedSkills, EducationField
 from app.services.ai.skill_extractor import resume_skill_extractor
 from app.services.document_parser import DocumentParseError, document_parser
 from app.services.storage import resume_storage
+from app.services.embedding_service import embedding_service
 
 
 ALLOWED_FILE_TYPES = {
@@ -75,7 +76,7 @@ class ResumeService:
                     "file_type": file_type,
                     "extracted_text": None,
                     "structured_content": {},
-                    "detected_skills": DetectedSkills().model_dump(),
+                    "detected_skills": DetectedResumeInformation().model_dump(),
                     "is_default": is_default,
                 },
             )
@@ -94,6 +95,15 @@ class ResumeService:
             db.commit()
             if not updated:
                 raise RuntimeError("Created resume could not be reloaded")
+            # Embedding is best effort here; a failed provider call leaves the resume
+            # usable and the explicit match flow will retry lazily.
+            try:
+                row = resumes_repo.get(db, user_id, resume_id)
+                embedding_service.ensure_resume(db, row)
+                db.commit()
+                updated = serialize_model(row)
+            except Exception:
+                db.rollback()
             return updated
         except DocumentParseError as exc:
             self._remove_failed_upload(db, user_id, resume_id, stored_path)
@@ -108,13 +118,17 @@ class ResumeService:
         user_id: UUID,
         resume_id: UUID,
         selected: DetectedSkills,
+        education_fields: list[EducationField],
     ) -> dict | None:
         resume = resumes_repo.get(db, user_id, resume_id)
         if not resume:
             return None
-        detected = DetectedSkills.model_validate(resume.detected_skills)
+        detected = DetectedResumeInformation.model_validate(resume.detected_skills)
         selected_data = selected.model_dump()
-        detected_data = detected.model_dump()
+        detected_data = {
+            category: getattr(detected, category)
+            for category in ("technical_skills", "product_skills", "soft_skills", "tools", "languages")
+        }
         approved: dict[str, list[str]] = {}
         for category, values in selected_data.items():
             allowed = {value.casefold(): value for value in detected_data[category]}
@@ -123,10 +137,15 @@ class ResumeService:
             approved[category] = [allowed[value.casefold()] for value in values]
 
         current = profile_repo.get(db, user_id) or {}
-        updates = {
+        updates: dict = {
             category: self._merge(current.get(category, []), values)
             for category, values in approved.items()
         }
+        for field in education_fields:
+            value = getattr(detected.education, field)
+            if value is None:
+                raise ResumeUploadError("Selected education fields must have a detected value")
+            updates[field] = value
         profile = profile_repo.upsert(db, user_id, updates)
         db.commit()
         return profile

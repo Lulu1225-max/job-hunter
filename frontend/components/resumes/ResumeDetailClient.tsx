@@ -1,15 +1,17 @@
 "use client";
 
 import {useEffect, useState} from "react";
-import {apiGet, type Resume} from "@/lib/api";
+import {apiGet,apiSend,type Resume} from "@/lib/api";
 
 export function ResumeDetailClient({id, copy}: {id: string; copy: Record<string, string>}) {
   const [resume, setResume] = useState<Resume | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [name,setName]=useState("");
+  const [saving,setSaving]=useState(false);
 
   useEffect(() => {
-    apiGet<Resume>(`/api/v1/resumes/${id}`).then(setResume).catch((err) => setError(err.message)).finally(() => setLoading(false));
+    apiGet<Resume>(`/api/v1/resumes/${id}`).then(value=>{setResume(value);setName(value.name)}).catch((err) => setError(err.message)).finally(() => setLoading(false));
   }, [id]);
 
   if (loading) return <StateCard text={copy.loading} />;
@@ -21,6 +23,7 @@ export function ResumeDetailClient({id, copy}: {id: string; copy: Record<string,
       <div>
         <h1 className="text-3xl font-semibold text-ink">{resume.name}</h1>
         <p className="mt-2 text-muted">{resume.is_default ? copy.default : copy.resume}</p>
+        <div className="mt-4 flex max-w-xl gap-2"><label className="flex-1 text-sm font-medium">{copy.name}<input value={name} onChange={event=>setName(event.target.value)} className="mt-1 h-10 w-full rounded-md border border-line px-3"/></label><button disabled={saving||!name.trim()||name.trim()===resume.name} onClick={async()=>{setSaving(true);setError(null);try{const updated=await apiSend<Resume>(`/api/v1/resumes/${id}`,"PATCH",{name:name.trim()});setResume(updated);setName(updated.name)}catch(err){setError((err as Error).message)}finally{setSaving(false)}}} className="mt-6 h-10 rounded-md bg-brand px-4 text-sm font-medium text-white disabled:opacity-50">{saving?copy.saving:copy.rename}</button></div>
       </div>
       <section className="grid gap-4 md:grid-cols-2">
         {Object.entries(content).map(([key, value]) => (
