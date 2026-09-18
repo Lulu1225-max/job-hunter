@@ -21,5 +21,6 @@ test("retrieval requires and displays the selected question",()=>{
 
 test("answer generation still requires explicit Experience selection",()=>{
   assert.match(source,/disabled=\{busy\|\|!questionId\|\|\(!technical&&!experienceId\)\}/);
+  assert.match(source,/regenerate:Boolean\(answer&&answer\.experience_id===\(experienceId\|\|null\)\)/);
   assert.match(source,/setExperienceId\(""\)/);
 });

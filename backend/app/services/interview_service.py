@@ -1,5 +1,6 @@
 from __future__ import annotations
 import re
+from time import perf_counter
 from typing import Any
 from uuid import UUID
 from sqlalchemy.orm import Session
@@ -10,6 +11,7 @@ from app.services.ai.client import ai_client
 from app.services.embedding_service import experience_source,fingerprint,job_source
 from app.services.experience_service import experience_service
 from app.services.matching import response_language,tokens
+from app.services.analytics import elapsed_ms, track_event
 
 ANSWER_VERSION="phase7-answer-v1"
 FEEDBACK_VERSION="phase7-feedback-v1"
@@ -84,22 +86,32 @@ class InterviewService:
         return {"questions":saved}
     def retrieve(self,db,user,question_id,limit):
         question=self._question(db,user,question_id);context=self._context(db,user,question)
+        app=applications_repo.get(db,user,question.application_id) if question.application_id else None
+        if app and app.job_id:
+            return experience_service.retrieve(db,user,question.question,context["text"],limit,app.job_id)
         return experience_service.retrieve(db,user,question.question,context["text"],limit)
-    def generate_answer(self,db,user,question_id,experience_id,length):
+    def generate_answer(self,db,user,question_id,experience_id,length,regenerate=False):
+        started=perf_counter()
         question=self._question(db,user,question_id);technical=self._technical(question)
         experience=experiences_repo.get(db,user,experience_id) if experience_id else None
         if experience_id and not experience:raise KeyError("Experience not found")
         if not technical and not experience:raise ValueError("Select an Experience before generating this answer")
+        app=applications_repo.get(db,user,question.application_id) if question.application_id else None
+        job_id=app.job_id if app else None
+        if experience:
+            track_event(user_id=user,event_name="experience_selected",job_id=job_id,experience_id=experience.id,status="success")
         context=self._context(db,user,question);language=response_language(profile_repo.get(db,user));qh=_hash(f"{question.question}|{question.category}");eh=fingerprint(experience_source(experience)) if experience else None;jh=_hash(context["text"])
         version=f"{ANSWER_VERSION}-{length}"
         cached=interview_answers_repo.current(db,user,question.id,experience.id if experience else None,qh,eh,jh,language,version)
-        if cached:return {**serialize_model(cached),"cached":True}
+        if cached and not regenerate:return {**serialize_model(cached),"cached":True}
         exp_data=serialize_model(experience) if experience else None
         generated=ai_client.structured_completion(prompt_name="interview_answer",schema=AnswerOutput,payload={"response_language":language,"answer_length":length,"question":serialize_model(question),"selected_experience":exp_data,"job_context":context["text"],"technical_conceptual":technical})
         grounding=f"{question.question}\n{context['text']}\n{experience_source(experience) if experience else ''}"
         values={key:_strip_unsupported_technologies(_strip_unsupported_numbers(value,grounding),grounding) for key,value in generated.model_dump().items()}
         row=interview_answers_repo.create(db,{"user_id":user,"question_id":question.id,"experience_id":experience.id if experience else None,**values,"response_language":language,"follow_up_questions":[],"question_fingerprint":qh,"experience_fingerprint":eh,"job_fingerprint":jh,"answer_version":version})
-        db.commit();return {**serialize_model(row),"cached":False}
+        db.commit()
+        track_event(user_id=user,event_name="interview_answer_regenerated" if regenerate else "interview_answer_generated",job_id=job_id,experience_id=experience.id if experience else None,status="success",latency_ms=elapsed_ms(started),metadata={"language":language})
+        return {**serialize_model(row),"cached":False}
     def feedback(self,db,user,question_id,answer,experience_id,answer_id):
         question=self._question(db,user,question_id);experience=experiences_repo.get(db,user,experience_id) if experience_id else None
         if experience_id and not experience:raise KeyError("Experience not found")

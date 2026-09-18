@@ -202,7 +202,8 @@ class MatchingService:
 
     def deep_match(self, db: Session, user_id: UUID, resume_id: UUID, job_id: UUID) -> dict:
         resume=resumes_repo.get(db,user_id,resume_id); job=jobs_repo.get_row(db,user_id,job_id)
-        if not resume or not job: raise KeyError("Resume or job not found")
+        if not resume: raise KeyError("Resume not found")
+        if not job: raise KeyError("Job not found")
         if not resume.extracted_text: raise ValueError("Resume has no extracted text")
         if not meaningful_jd(job): raise ValueError("Job needs a meaningful description for Resume Match")
         profile=profile_repo.get(db,user_id) or {}

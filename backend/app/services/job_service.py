@@ -4,6 +4,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 from app.repositories.database import job_import_previews_repo, jobs_repo
 from app.utils.excel import inspect_import, parse_import
+from app.services.analytics import track_event
 
 MAX_IMPORT_BYTES = 10 * 1024 * 1024
 SESSION_TTL = timedelta(minutes=30)
@@ -68,13 +69,21 @@ class JobService:
         except Exception:
             db.rollback()
             raise
+        if counts["created"] or counts["updated"]:
+            track_event(user_id=user_id, event_name="job_imported", status="success", metadata={
+                "source": "xlsx" if row.filename.lower().endswith(".xlsx") else "csv",
+                "imported_count": counts["created"], "skipped_count": counts["skipped"],
+                "duplicate_count": counts["updated"] + counts["skipped"] - parsed["skipped_blank"],
+            })
         return {**counts, "import": record, "issues": parsed["issues"], "warnings": parsed["warnings"]}
 
     def list_jobs(self, db: Session, user_id: UUID, filters: dict): return jobs_repo.list(db, user_id, filters)
     def page_jobs(self, db: Session, user_id: UUID, filters: dict, page: int, page_size: int): return jobs_repo.page(db, user_id, filters, page, page_size)
     def get_job(self, db: Session, user_id: UUID, job_id: UUID): return jobs_repo.get(db, user_id, job_id)
     def create_job(self, db: Session, user_id: UUID, payload: dict):
-        job = jobs_repo.create(db, user_id, payload); db.commit(); return job
+        job = jobs_repo.create(db, user_id, payload); db.commit()
+        track_event(user_id=user_id, event_name="job_created", job_id=UUID(str(job["id"])), status="success", metadata={"source": "manual"})
+        return job
     def update_job(self, db: Session, user_id: UUID, job_id: UUID, payload: dict):
         job = jobs_repo.update(db, user_id, job_id, payload); db.commit(); return job
     def delete_job(self, db: Session, user_id: UUID, job_id: UUID):

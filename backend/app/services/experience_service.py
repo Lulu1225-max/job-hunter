@@ -74,7 +74,10 @@ class ExperienceService:
         values["technologies"] = [item for item in values["technologies"] if item.casefold() in lower_notes]
         return {"proposal": values, "follow_up_questions": proposal.follow_up_questions, "response_language": language, "saved": False}
 
-    def retrieve(self, db: Session, user_id: UUID, query: str, job_context: str | None, limit: int) -> dict[str, Any]:
+    def retrieve(self, db: Session, user_id: UUID, query: str, job_context: str | None, limit: int, job_id: UUID | None = None) -> dict[str, Any]:
+        from time import perf_counter
+        from app.services.analytics import elapsed_ms, track_event
+        started = perf_counter()
         query_text = query.strip() + (f"\nJob context: {job_context.strip()}" if job_context and job_context.strip() else "")
         query_vector = ai_client.get_embedding(query_text)
         embedded = 0
@@ -106,6 +109,8 @@ class ExperienceService:
                 "selected": False,
             }))
         items = [item for _, item in sorted(ranked_items, key=lambda value: value[0], reverse=True)[:limit]]
+        track_event(user_id=user_id, event_name="experience_retrieved", job_id=job_id, status="success",
+                    latency_ms=elapsed_ms(started), metadata={"candidate_count": len(candidates), "returned_count": len(items)})
         return {"query": query, "recommendations": items, "selected_experience_id": None, "embedded_missing_count": embedded}
 
     def _best_effort_embedding(self, db: Session, row: Any) -> bool:

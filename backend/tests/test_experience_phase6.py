@@ -126,7 +126,8 @@ def test_ai_organization_is_language_aware_preview_only_and_removes_invented_val
 
 
 def test_retrieval_is_explicit_limited_and_never_auto_selects(monkeypatch):
-    owner=uuid4();rows=[exp(user_id=owner,title=f"Story {i}") for i in range(6)];calls=[]
+    owner=uuid4();rows=[exp(user_id=owner,title=f"Story {i}") for i in range(6)];calls=[];events=[]
+    monkeypatch.setattr("app.services.analytics.track_event",lambda **kw:events.append(kw))
     monkeypatch.setattr(module.ai_client,"get_embedding",lambda text:calls.append(text) or [1.0,0.0])
     monkeypatch.setattr(module.profile_repo,"get",lambda *args:{"ai_response_language":"english"})
     monkeypatch.setattr(module.experiences_repo,"missing_embeddings",lambda db,user,limit:[])
@@ -134,6 +135,8 @@ def test_retrieval_is_explicit_limited_and_never_auto_selects(monkeypatch):
     result=module.experience_service.retrieve(Db(),owner,"stakeholder management",None,3)
     assert len(calls)==1 and len(result["recommendations"])==3
     assert result["selected_experience_id"] is None and all(item["selected"] is False for item in result["recommendations"])
+    assert len(events)==1 and events[0]["event_name"]=="experience_retrieved"
+    assert events[0]["metadata"]=={"candidate_count":5,"returned_count":3}
 
 
 def test_retrieval_handles_no_experiences_and_missing_embedding_failure(monkeypatch):

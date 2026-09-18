@@ -78,6 +78,26 @@ def test_answer_language_and_length_do_not_cross_cache(monkeypatch):
  monkeypatch.setattr(module.profile_repo,"get",lambda *args:{"ai_response_language":"english"});module.interview_service.generate_answer(Db(),owner,q.id,e.id,"1min")
  assert keys[-1][0]=="english"
 
+
+def test_analytics_selection_and_generation_are_distinct_from_retrieval(monkeypatch):
+ owner,app,q,e=setup(monkeypatch);events=[];cache={}
+ monkeypatch.setattr(module,"track_event",lambda **kw:events.append(kw))
+ monkeypatch.setattr(module.experience_service,"retrieve",lambda *args:{"recommendations":[{"experience_id":str(e.id)}]})
+ module.interview_service.retrieve(Db(),owner,q.id,3)
+ assert events==[]
+ monkeypatch.setattr(module.interview_answers_repo,"current",lambda *args:cache.get("row"))
+ def create(db,payload):
+  row=obj(id=uuid4(),created_at=None,updated_at=None,feedback=None,**payload);cache["row"]=row;return row
+ monkeypatch.setattr(module.interview_answers_repo,"create",create)
+ monkeypatch.setattr(module.ai_client,"structured_completion",lambda **kwargs:AnswerOutput(answer_1min="我使用 Figma 协调需求。"))
+ service=module.interview_service
+ service.generate_answer(Db(),owner,q.id,e.id,"1min")
+ assert [x["event_name"] for x in events]==["experience_selected","interview_answer_generated"]
+ events.clear()
+ service.generate_answer(Db(),owner,q.id,e.id,"1min",True)
+ assert [x["event_name"] for x in events]==["experience_selected","interview_answer_regenerated"]
+ assert events[-1]["latency_ms"]>=0 and events[-1]["experience_id"]==e.id
+
 def test_feedback_supports_user_answer_grounding_followups_and_cache(monkeypatch):
  owner,app,q,e=setup(monkeypatch);calls=[]
  output=FeedbackOutput(strengths=["具体"],weaknesses=["结果不足"],missing_evidence=["指标"],structure="清楚",star_completeness="结果较弱",clarity="清楚",specificity="可加强",relevance="相关",follow_up_questions=["为什么？","取舍是什么？","会如何改进？"],improved_answer="我协调需求并提升 50%。")

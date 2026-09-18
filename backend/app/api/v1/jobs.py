@@ -2,6 +2,7 @@ from __future__ import annotations
 from uuid import UUID
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 import math
+from time import perf_counter
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import OperationalError
 from app.core.database import get_db
@@ -10,6 +11,7 @@ from app.repositories.database import ensure_user, profile_repo, resumes_repo
 from app.schemas.jobs import ImportOptions, JobCreate, JobUpdate
 from app.services.job_service import job_service
 from app.services.matching import matching_service
+from app.services.analytics import elapsed_ms, track_event
 router=APIRouter()
 def not_found():return HTTPException(404,detail={"error":{"code":"JOB_NOT_FOUND","message":"Job not found"}})
 def bad(exc):return HTTPException(422,detail={"error":{"code":"INVALID_JOB_IMPORT","message":str(exc)}})
@@ -71,7 +73,22 @@ def discovery_match(job_id:UUID,db:Session=Depends(get_db),user_id:UUID=Depends(
 @router.post("/{job_id}/match")
 def match_job(job_id:UUID,resume_id:UUID,db:Session=Depends(get_db),user_id:UUID=Depends(get_current_user_id)):
  ensure_user(db,user_id)
- try:return matching_service.deep_match(db,user_id,resume_id,job_id)
- except KeyError:raise HTTPException(404,detail={"error":{"code":"MATCH_RESOURCE_NOT_FOUND","message":"Resume or job not found"}})
- except ValueError as exc:raise HTTPException(422,detail={"error":{"code":"MATCH_DATA_INSUFFICIENT","message":str(exc)}})
- except RuntimeError as exc:raise HTTPException(502,detail={"error":{"code":"MATCH_UNAVAILABLE","message":str(exc)}})
+ started=perf_counter()
+ track_event(user_id=user_id,event_name="resume_match_started",job_id=job_id,resume_id=resume_id,status="success",metadata={"match_mode":"deep"})
+ try:
+  result=matching_service.deep_match(db,user_id,resume_id,job_id)
+ except (KeyError,ValueError,RuntimeError,TimeoutError) as exc:
+  error_type=("resume_missing" if isinstance(exc,KeyError) and "Resume" in str(exc) else
+              "insufficient_job_description" if "meaningful description" in str(exc) else
+              "resume_missing" if "extracted text" in str(exc) else
+              "timeout" if isinstance(exc,TimeoutError) else
+              "ai_request_failed" if isinstance(exc,RuntimeError) else "unknown")
+  track_event(user_id=user_id,event_name="resume_match_failed",job_id=None if isinstance(exc,KeyError) and "Job" in str(exc) else job_id,resume_id=None if isinstance(exc,KeyError) and "Resume" in str(exc) else resume_id,status="failed",error_type=error_type,latency_ms=elapsed_ms(started))
+  if isinstance(exc,KeyError):raise HTTPException(404,detail={"error":{"code":"MATCH_RESOURCE_NOT_FOUND","message":"Resume or job not found"}})
+  if isinstance(exc,ValueError):raise HTTPException(422,detail={"error":{"code":"MATCH_DATA_INSUFFICIENT","message":str(exc)}})
+  raise HTTPException(502,detail={"error":{"code":"MATCH_UNAVAILABLE","message":str(exc)}})
+ except Exception:
+  track_event(user_id=user_id,event_name="resume_match_failed",job_id=job_id,resume_id=resume_id,status="failed",error_type="unknown",latency_ms=elapsed_ms(started))
+  raise
+ track_event(user_id=user_id,event_name="resume_match_completed",job_id=job_id,resume_id=resume_id,status="success",latency_ms=elapsed_ms(started),metadata={"cache_hit":result.get("cached",False)})
+ return result
