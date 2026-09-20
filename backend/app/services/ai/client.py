@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import logging
 import re
 from pathlib import Path
 from typing import TypeVar
@@ -10,10 +9,11 @@ from openai import OpenAI
 from pydantic import BaseModel
 
 from app.core.config import settings
+from app.core.runtime_logging import get_server_logger
 
 
 SchemaT = TypeVar("SchemaT", bound=BaseModel)
-logger = logging.getLogger(__name__)
+logger = get_server_logger()
 
 
 def _safe_identifier(value: object | None) -> str | None:

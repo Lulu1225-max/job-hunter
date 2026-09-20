@@ -33,7 +33,7 @@ def test_openai_http_failures_log_only_safe_structured_fields(monkeypatch, caplo
     error=FakeOpenAIError(status)
     monkeypatch.setattr(settings,"openai_api_key","sk-super-secret")
     monkeypatch.setattr(module,"OpenAI",lambda **kwargs:FakeClient(error))
-    caplog.set_level(logging.ERROR,logger=module.__name__)
+    caplog.set_level(logging.ERROR,logger="uvicorn.error")
     with pytest.raises(FakeOpenAIError):
         module.ai_client.structured_completion(
             prompt_name="interview_question_classifier", schema=QuestionTypeResult,
@@ -53,7 +53,7 @@ def test_answer_flow_includes_question_type_without_payload(monkeypatch, caplog)
     error=FakeOpenAIError(429)
     monkeypatch.setattr(settings,"openai_api_key","sk-super-secret")
     monkeypatch.setattr(module,"OpenAI",lambda **kwargs:FakeClient(error))
-    caplog.set_level(logging.ERROR,logger=module.__name__)
+    caplog.set_level(logging.ERROR,logger="uvicorn.error")
     with pytest.raises(FakeOpenAIError):
         module.ai_client.structured_completion(
             prompt_name="interview_answer", schema=QuestionTypeResult,
