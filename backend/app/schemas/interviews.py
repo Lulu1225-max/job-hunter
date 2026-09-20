@@ -27,6 +27,6 @@ class FeedbackOutput(BaseModel):
 class FeedbackRequest(BaseModel): answer:str=Field(min_length=2,max_length=12000);experience_id:UUID|None=None;answer_id:UUID|None=None
 
 class InterviewCreate(BaseModel):
-    application_id:UUID;round:str|None=Field(default=None,max_length=80);interview_type:str|None=Field(default=None,max_length=80);scheduled_at:datetime|None=None;status:str="completed";notes:str|None=None;difficulty:int|None=Field(default=None,ge=1,le=5);confidence:int|None=Field(default=None,ge=1,le=5);interviewer_notes:str|None=None;went_well:str|None=None;to_improve:str|None=None;outcome:Outcome="pending";actual_questions:list[str]=Field(default_factory=list,max_length=30)
+    application_id:UUID;round:str|None=Field(default=None,max_length=80);interview_type:str|None=Field(default=None,max_length=80);scheduled_at:datetime|None=None;status:str="completed";notes:str|None=None;difficulty:int|None=Field(default=None,ge=1,le=5);confidence:int|None=Field(default=None,ge=1,le=5);interviewer_notes:str|None=None;went_well:str|None=None;to_improve:str|None=None;outcome:Outcome="pending";actual_questions:list[str]=Field(default_factory=list,max_length=30);request_id:UUID|None=None
 class InterviewUpdate(BaseModel):
     round:str|None=None;interview_type:str|None=None;scheduled_at:datetime|None=None;status:str|None=None;notes:str|None=None;difficulty:int|None=Field(default=None,ge=1,le=5);confidence:int|None=Field(default=None,ge=1,le=5);interviewer_notes:str|None=None;went_well:str|None=None;to_improve:str|None=None;outcome:Outcome|None=None

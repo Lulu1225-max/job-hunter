@@ -12,6 +12,7 @@ from app.services.embedding_service import experience_source,fingerprint,job_sou
 from app.services.experience_service import experience_service
 from app.services.matching import response_language,tokens
 from app.services.analytics import elapsed_ms, track_event
+from app.services.question_bank_service import question_bank_service, simple_category
 
 ANSWER_VERSION="phase7-answer-v1"
 FEEDBACK_VERSION="phase7-feedback-v1"
@@ -49,12 +50,17 @@ class InterviewService:
     def create_interview(self,db,user,payload):
         app=applications_repo.get(db,user,payload["application_id"])
         if not app:raise KeyError("Application not found")
-        questions=payload.pop("actual_questions",[]);application_id=payload.pop("application_id")
+        questions=payload.pop("actual_questions",[]);application_id=payload.pop("application_id");request_id=payload.pop("request_id",None)
         row=interviews_repo.create(db,user,application_id,payload)
-        saved_questions=[]
+        saved_questions=[];bank_results=[]
         for text in questions:
-            if text.strip():saved_questions.append(interview_questions_repo.create(db,user,{"interview_id":row.id,"application_id":application_id,"company":app.company,"role":app.role,"question":text.strip(),"category":"actual interview","source":"actual_interview"}))
+            if text.strip():
+                saved_questions.append(interview_questions_repo.create(db,user,{"interview_id":row.id,"application_id":application_id,"company":app.company,"role":app.role,"question":text.strip(),"category":"actual interview","source":"actual_interview"}))
+                bank_results.append(question_bank_service.save(db,user,question=text,category=simple_category(payload.get("interview_type")),source="actual_interview",occurrence_key=f"{request_id}:{text.strip().lower()}" if request_id else f"interview:{row.id}:{text.strip().lower()}",commit=False,analytics=False))
         db.commit()
+        for result in bank_results:
+            event="question_bank_item_seen_again" if result["duplicate"] and result["times_seen_incremented"] else "question_bank_item_created" if not result["duplicate"] else None
+            if event: track_event(user_id=user,event_name=event,status="success",metadata={"source":"actual_interview","category":result["category"]})
         return {**serialize_model(row),"application":serialize_model(app),"actual_questions":saved_questions}
     def update_interview(self,db,user,id,payload):
         row=interviews_repo.update(db,user,id,payload)

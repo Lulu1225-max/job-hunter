@@ -107,6 +107,8 @@ def test_feedback_supports_user_answer_grounding_followups_and_cache(monkeypatch
 
 def test_actual_interview_creates_owned_actual_questions_and_review_fields(monkeypatch):
  owner,app,q,e=setup(monkeypatch);created=[];questions=[]
+ monkeypatch.setattr(module.question_bank_service,"save",lambda *args,**kwargs:{"duplicate":False,"times_seen_incremented":False,"category":"Behavioral"})
+ monkeypatch.setattr(module,"track_event",lambda **kwargs:None)
  monkeypatch.setattr(module.interviews_repo,"create",lambda db,user,application_id,payload:(created.append((user,payload)) or obj(id=uuid4(),user_id=user,application_id=application_id,created_at=None,updated_at=None,**payload)))
  monkeypatch.setattr(module.interview_questions_repo,"create",lambda db,user,payload:questions.append((user,payload)) or payload)
  result=module.interview_service.create_interview(Db(),owner,{"application_id":app.id,"round":"hr_round","interview_type":"behavioral","status":"completed","outcome":"passed","difficulty":4,"confidence":3,"went_well":"Clear examples","to_improve":"Be concise","actual_questions":["Why us?"]})

@@ -21,6 +21,11 @@ EVENTS = {
     "experience_selected": set(),
     "interview_answer_generated": {"language"},
     "interview_answer_regenerated": {"language"},
+    "question_bank_item_created": {"source", "category"},
+    "question_bank_item_updated": {"source", "category"},
+    "question_bank_item_deleted": {"source", "category"},
+    "question_bank_item_favorited": {"source", "category"},
+    "question_bank_item_seen_again": {"source", "category"},
 }
 
 

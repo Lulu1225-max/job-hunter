@@ -6,6 +6,7 @@ from app.models.experience import Experience
 from app.models.interview import Interview
 from app.models.interview_answer import InterviewAnswer
 from app.models.interview_question import InterviewQuestion
+from app.models.interview_question_bank import InterviewQuestionBankItem
 from app.models.job import Job
 from app.models.job_import import JobImport
 from app.models.resume import Resume
@@ -21,6 +22,7 @@ __all__ = [
     "Interview",
     "InterviewAnswer",
     "InterviewQuestion",
+    "InterviewQuestionBankItem",
     "Job",
     "JobImport",
     "Resume",

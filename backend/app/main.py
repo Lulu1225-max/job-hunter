@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.api.v1 import analytics, applications, auth, experiences, jobs, profile, resumes, interviews
+from app.api.v1 import analytics, applications, auth, experiences, jobs, profile, resumes, interviews, question_bank
 
 app = FastAPI(title="Job Hunter API", version="0.1.0")
 
@@ -23,6 +23,7 @@ app.include_router(applications.router, prefix="/api/v1/applications", tags=["ap
 app.include_router(resumes.router, prefix="/api/v1/resumes", tags=["resumes"])
 app.include_router(experiences.router, prefix="/api/v1/experiences", tags=["experiences"])
 app.include_router(interviews.router, prefix="/api/v1", tags=["interviews"])
+app.include_router(question_bank.router, prefix="/api/v1/interview/question-bank", tags=["question-bank"])
 app.include_router(analytics.router, prefix="/api/v1/analytics", tags=["analytics"])
 
 
