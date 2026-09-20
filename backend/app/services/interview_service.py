@@ -115,7 +115,7 @@ class InterviewService:
         cached=interview_answers_repo.current(db,user,question.id,experience.id if experience else None,qh,eh,jh,language,version)
         if cached and not regenerate:return {**serialize_model(cached),"cached":True}
         exp_data=serialize_model(experience) if experience else None
-        generated=ai_client.structured_completion(prompt_name="interview_answer",schema=AnswerOutput,payload={"response_language":language,"answer_length":length,"question":serialize_model(question),"question_type":question_type,"selected_experience":exp_data,"answer_context":context})
+        generated=ai_client.structured_completion(prompt_name="interview_answer",schema=AnswerOutput,payload={"response_language":language,"answer_length":length,"question":serialize_model(question),"question_type":question_type,"selected_experience":exp_data,"answer_context":context},diagnostic_context={"flow":"interview_answer_generation","question_type":question_type})
         grounding=f"{question.question}\n{context}\n{experience_source(experience) if experience else ''}"
         values={key:_strip_unsupported_technologies(_strip_unsupported_numbers(value,grounding),grounding) for key,value in generated.model_dump().items()}
         row=interview_answers_repo.create(db,{"user_id":user,"question_id":question.id,"experience_id":experience.id if experience else None,**values,"response_language":language,"follow_up_questions":[],"question_fingerprint":qh,"experience_fingerprint":eh,"job_fingerprint":jh,"answer_version":version})

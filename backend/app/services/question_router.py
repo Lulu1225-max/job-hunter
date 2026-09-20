@@ -30,6 +30,7 @@ def classify_question(question: str, category: str | None = None) -> QuestionTyp
         return ai_client.structured_completion(
             prompt_name="interview_question_classifier", schema=QuestionTypeResult,
             payload={"question": question, "category": category},
+            diagnostic_context={"flow": "question_classifier", "question_type": "unknown"},
         ).question_type
     except Exception:
         # The safe fallback does not require or invent personal experience.
