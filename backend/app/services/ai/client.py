@@ -53,6 +53,20 @@ def _log_openai_failure(exc: Exception, flow: str, question_type: str | None = N
 
 
 class AIClient:
+    def check_responses_api(self) -> None:
+        """Minimal authenticated connectivity check; response content is discarded."""
+        try:
+            if not settings.openai_api_key:
+                raise RuntimeError("OPENAI_API_KEY is not configured")
+            OpenAI(api_key=settings.openai_api_key).responses.create(
+                model=settings.openai_model,
+                input="Reply with OK only.",
+                max_output_tokens=5,
+            )
+        except Exception as exc:
+            _log_openai_failure(exc, "openai_connectivity_diagnostic")
+            raise
+
     def get_embeddings(self, texts: list[str]) -> list[list[float]]:
         if not settings.openai_api_key:
             raise RuntimeError("OPENAI_API_KEY is not configured")
