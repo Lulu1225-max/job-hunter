@@ -73,10 +73,15 @@ def retrieve(question_id:UUID,payload:RetrieveForQuestionRequest,db:Session=Depe
     ensure_user(db,user_id)
     try:return interview_service.retrieve(db,user_id,question_id,payload.limit)
     except Exception as exc:return fail(exc)
+@router.get("/interview/questions/{question_id}/route")
+def question_route(question_id:UUID,db:Session=Depends(get_db),user_id:UUID=Depends(get_current_user_id)):
+    ensure_user(db,user_id)
+    try:return interview_service.route(db,user_id,question_id)
+    except Exception as exc:return fail(exc)
 @router.post("/interview/questions/{question_id}/answers")
 def answer(question_id:UUID,payload:GenerateAnswerRequest,db:Session=Depends(get_db),user_id:UUID=Depends(get_current_user_id)):
     ensure_user(db,user_id)
-    try:return interview_service.generate_answer(db,user_id,question_id,payload.experience_id,payload.answer_length,payload.regenerate)
+    try:return interview_service.generate_answer(db,user_id,question_id,payload.experience_id,payload.answer_length,payload.regenerate,payload.question_type)
     except Exception as exc:return fail(exc)
 @router.post("/interview/questions/{question_id}/feedback")
 def feedback(question_id:UUID,payload:FeedbackRequest,db:Session=Depends(get_db),user_id:UUID=Depends(get_current_user_id)):

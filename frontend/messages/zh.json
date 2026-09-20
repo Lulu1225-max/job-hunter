@@ -393,7 +393,22 @@
     "category_Technical": "技术",
     "category_HR": "HR",
     "category_Other": "其他",
-    "bankUseInPrep": "用于面试准备"
+    "bankUseInPrep": "用于面试准备",
+    "answerRoute": "回答路径",
+    "questionType_behavioral": "行为面试",
+    "questionType_knowledge": "知识题",
+    "questionType_motivation": "求职动机",
+    "questionType_resume_based": "简历相关",
+    "questionType_case": "案例题",
+    "route_behavioral": "查找相关经历",
+    "route_knowledge": "直接生成知识型回答",
+    "route_motivation": "基于岗位信息生成",
+    "route_resume_based": "基于简历生成",
+    "route_case": "生成结构化案例回答",
+    "routeHelp_knowledge": "直接使用问题和岗位上下文回答，不查询经历库。",
+    "routeHelp_motivation": "使用职位描述、个人档案和默认简历生成。",
+    "routeHelp_resume_based": "使用个人档案和默认简历生成。",
+    "routeHelp_case": "使用结构化分析框架，不强制选择个人经历。"
   },
   "analytics": {
     "statusBreakdown": "申请状态分布"

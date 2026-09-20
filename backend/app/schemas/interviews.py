@@ -19,7 +19,7 @@ class ParseQuestionsRequest(BaseModel): text:str=Field(min_length=10,max_length=
 class ConfirmQuestionsRequest(BaseModel): questions:list[QuestionCreate]=Field(min_length=1,max_length=30)
 class GenerateQuestionsRequest(BaseModel): application_id:UUID;category:str|None=None;count:int=Field(default=5,ge=1,le=8)
 class RetrieveForQuestionRequest(BaseModel): limit:int=Field(default=3,ge=1,le=5)
-class GenerateAnswerRequest(BaseModel): experience_id:UUID|None=None;answer_length:Literal["30s","1min","2min"]="1min";regenerate:bool=False
+class GenerateAnswerRequest(BaseModel): experience_id:UUID|None=None;answer_length:Literal["30s","1min","2min"]="1min";regenerate:bool=False;question_type:Literal["behavioral","knowledge","motivation","resume_based","case"]|None=None
 
 class AnswerOutput(BaseModel): answer_30s:str|None=None;answer_1min:str|None=None;answer_2min:str|None=None
 class FeedbackOutput(BaseModel):

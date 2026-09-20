@@ -20,7 +20,15 @@ test("retrieval requires and displays the selected question",()=>{
 });
 
 test("answer generation still requires explicit Experience selection",()=>{
-  assert.match(source,/disabled=\{busy\|\|!questionId\|\|\(!technical&&!experienceId\)\}/);
+  assert.match(source,/questionType===\"behavioral\"/);
+  assert.match(source,/questionType===\"behavioral\"&&!experienceId/);
   assert.match(source,/regenerate:Boolean\(answer&&answer\.experience_id===\(experienceId\|\|null\)\)/);
   assert.match(source,/setExperienceId\(""\)/);
+});
+
+test("question router hides Experience Retrieval for non behavioral paths",()=>{
+  assert.match(source,/questionType===\"behavioral\"&&<>/);
+  assert.match(source,/questionType!==\"behavioral\"/);
+  assert.match(source,/routeHelp_/);
+  assert.match(source,/questions\/\$\{questionId\}\/route/);
 });

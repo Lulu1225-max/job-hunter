@@ -5,7 +5,7 @@ from typing import Any
 from uuid import UUID
 from sqlalchemy.orm import Session
 
-from app.repositories.database import applications_repo,experiences_repo,interview_answers_repo,interview_questions_repo,interviews_repo,jobs_repo,profile_repo,serialize_model
+from app.repositories.database import applications_repo,experiences_repo,interview_answers_repo,interview_questions_repo,interviews_repo,jobs_repo,profile_repo,resumes_repo,serialize_model
 from app.schemas.interviews import AnswerOutput,FeedbackOutput,ParsedQuestions,QuestionList
 from app.services.ai.client import ai_client
 from app.services.embedding_service import experience_source,fingerprint,job_source
@@ -13,6 +13,7 @@ from app.services.experience_service import experience_service
 from app.services.matching import response_language,tokens
 from app.services.analytics import elapsed_ms, track_event
 from app.services.question_bank_service import question_bank_service, simple_category
+from app.services.question_router import classify_question, route_summary, rule_question_type
 
 ANSWER_VERSION="phase7-answer-v1"
 FEEDBACK_VERSION="phase7-feedback-v1"
@@ -91,28 +92,31 @@ class InterviewService:
         for item in output.questions[:count]:saved.append(self.add_question(db,user,{**item.model_dump(),"application_id":application_id,"company":app.company,"role":app.role,"source":"ai_generated"}))
         return {"questions":saved}
     def retrieve(self,db,user,question_id,limit):
-        question=self._question(db,user,question_id);context=self._context(db,user,question)
+        question=self._question(db,user,question_id)
+        if classify_question(question.question,question.category)!="behavioral":
+            raise ValueError("Experience Retrieval is only available for behavioral questions")
+        context=self._context(db,user,question)
         app=applications_repo.get(db,user,question.application_id) if question.application_id else None
         if app and app.job_id:
             return experience_service.retrieve(db,user,question.question,context["text"],limit,app.job_id)
         return experience_service.retrieve(db,user,question.question,context["text"],limit)
-    def generate_answer(self,db,user,question_id,experience_id,length,regenerate=False):
+    def generate_answer(self,db,user,question_id,experience_id,length,regenerate=False,question_type_hint=None):
         started=perf_counter()
-        question=self._question(db,user,question_id);technical=self._technical(question)
-        experience=experiences_repo.get(db,user,experience_id) if experience_id else None
-        if experience_id and not experience:raise KeyError("Experience not found")
-        if not technical and not experience:raise ValueError("Select an Experience before generating this answer")
+        question=self._question(db,user,question_id);question_type=rule_question_type(question.question,question.category) or question_type_hint or classify_question(question.question,question.category)
+        experience=experiences_repo.get(db,user,experience_id) if experience_id and question_type=="behavioral" else None
+        if experience_id and question_type=="behavioral" and not experience:raise KeyError("Experience not found")
+        if question_type=="behavioral" and not experience:raise ValueError("Select an Experience before generating this answer")
         app=applications_repo.get(db,user,question.application_id) if question.application_id else None
         job_id=app.job_id if app else None
         if experience:
             track_event(user_id=user,event_name="experience_selected",job_id=job_id,experience_id=experience.id,status="success")
-        context=self._context(db,user,question);language=response_language(profile_repo.get(db,user));qh=_hash(f"{question.question}|{question.category}");eh=fingerprint(experience_source(experience)) if experience else None;jh=_hash(context["text"])
-        version=f"{ANSWER_VERSION}-{length}"
+        context=self._answer_context(db,user,question,question_type);language=response_language(profile_repo.get(db,user));qh=_hash(f"{question.question}|{question.category}|{question_type}");eh=fingerprint(experience_source(experience)) if experience else None;jh=_hash(context)
+        version=f"{ANSWER_VERSION}-router-v1-{question_type}-{length}"
         cached=interview_answers_repo.current(db,user,question.id,experience.id if experience else None,qh,eh,jh,language,version)
         if cached and not regenerate:return {**serialize_model(cached),"cached":True}
         exp_data=serialize_model(experience) if experience else None
-        generated=ai_client.structured_completion(prompt_name="interview_answer",schema=AnswerOutput,payload={"response_language":language,"answer_length":length,"question":serialize_model(question),"selected_experience":exp_data,"job_context":context["text"],"technical_conceptual":technical})
-        grounding=f"{question.question}\n{context['text']}\n{experience_source(experience) if experience else ''}"
+        generated=ai_client.structured_completion(prompt_name="interview_answer",schema=AnswerOutput,payload={"response_language":language,"answer_length":length,"question":serialize_model(question),"question_type":question_type,"selected_experience":exp_data,"answer_context":context})
+        grounding=f"{question.question}\n{context}\n{experience_source(experience) if experience else ''}"
         values={key:_strip_unsupported_technologies(_strip_unsupported_numbers(value,grounding),grounding) for key,value in generated.model_dump().items()}
         row=interview_answers_repo.create(db,{"user_id":user,"question_id":question.id,"experience_id":experience.id if experience else None,**values,"response_language":language,"follow_up_questions":[],"question_fingerprint":qh,"experience_fingerprint":eh,"job_fingerprint":jh,"answer_version":version})
         db.commit()
@@ -147,6 +151,19 @@ class InterviewService:
     def _context(self,db,user,question):
         app=applications_repo.get(db,user,question.application_id) if question.application_id else None;job=jobs_repo.get_row(db,user,app.job_id) if app and app.job_id else None
         return {"text":job_source(job) if job else " ".join(filter(None,[question.company,question.role,app.company if app else None,app.role if app else None]))}
+    def route(self,db,user,question_id):return route_summary(self._question(db,user,question_id))
+    def _answer_context(self,db,user,question,question_type):
+        job_context=self._context(db,user,question)["text"]
+        if question_type in {"knowledge","behavioral"}:return job_context
+        if question_type=="case":return f"Job context:\n{job_context}\nUse a structured clarify-assumptions-users-goals-options-tradeoffs-metrics framework."
+        profile=profile_repo.get(db,user) or {}
+        profile_text="\n".join(f"{key}: {value}" for key,value in profile.items() if key not in {"id","user_id","created_at","updated_at"} and value not in (None,"",[],{}))
+        default=resumes_repo.default(db,user);resume_text=""
+        if default:
+            resume=resumes_repo.get(db,user,UUID(str(default["id"])))
+            resume_text=(resume.extracted_text or "")[:12000] if resume else ""
+        if question_type=="resume_based":return f"Profile:\n{profile_text}\nResume:\n{resume_text}"
+        return f"Job context:\n{job_context}\nProfile:\n{profile_text}\nResume:\n{resume_text}"
     def _technical(self,question):return question.category.casefold() in TECHNICAL_CATEGORIES and not any(cue in question.question.casefold() for cue in PERSONAL_CUES)
 
 interview_service=InterviewService()

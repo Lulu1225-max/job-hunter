@@ -392,7 +392,22 @@
     "category_Technical": "Technical",
     "category_HR": "HR",
     "category_Other": "Other",
-    "bankUseInPrep": "Use in Interview Prep"
+    "bankUseInPrep": "Use in Interview Prep",
+    "answerRoute": "Answer route",
+    "questionType_behavioral": "Behavioral",
+    "questionType_knowledge": "Knowledge",
+    "questionType_motivation": "Motivation",
+    "questionType_resume_based": "Resume based",
+    "questionType_case": "Case",
+    "route_behavioral": "Find relevant Experiences",
+    "route_knowledge": "Generate a knowledge answer",
+    "route_motivation": "Generate from job information",
+    "route_resume_based": "Generate from your resume",
+    "route_case": "Generate a structured case answer",
+    "routeHelp_knowledge": "Answer directly using the question and job context.",
+    "routeHelp_motivation": "Uses the Job Description, Profile, and default Resume.",
+    "routeHelp_resume_based": "Uses your Profile and default Resume.",
+    "routeHelp_case": "Builds a structured analysis without requiring a personal Experience."
   },
   "analytics": {
     "statusBreakdown": "Application Status Breakdown"
