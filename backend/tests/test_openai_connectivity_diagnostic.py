@@ -33,7 +33,11 @@ def test_connectivity_client_uses_configured_model_and_minimal_input(monkeypatch
     fake=FakeOpenAI();monkeypatch.setattr(settings,"openai_api_key","sk-secret");monkeypatch.setattr(settings,"openai_model","gpt-test")
     monkeypatch.setattr(client_module,"OpenAI",lambda **kwargs:fake)
     client_module.ai_client.check_responses_api()
-    assert fake.responses.calls==[{"model":"gpt-test","input":"Reply with OK only.","max_output_tokens":5}]
+    assert fake.responses.calls==[{"model":"gpt-test","input":"Reply with OK only.","max_output_tokens":16}]
+
+
+def test_responses_output_token_floor_is_never_below_api_minimum():
+    assert client_module.MIN_RESPONSES_OUTPUT_TOKENS >= 16
 
 
 def test_debug_endpoint_requires_existing_jwt_auth():

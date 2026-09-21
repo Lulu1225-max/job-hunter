@@ -14,6 +14,7 @@ from app.core.runtime_logging import get_server_logger
 
 SchemaT = TypeVar("SchemaT", bound=BaseModel)
 logger = get_server_logger()
+MIN_RESPONSES_OUTPUT_TOKENS = 16
 
 
 def _safe_identifier(value: object | None) -> str | None:
@@ -61,7 +62,7 @@ class AIClient:
             OpenAI(api_key=settings.openai_api_key).responses.create(
                 model=settings.openai_model,
                 input="Reply with OK only.",
-                max_output_tokens=5,
+                max_output_tokens=MIN_RESPONSES_OUTPUT_TOKENS,
             )
         except Exception as exc:
             _log_openai_failure(exc, "openai_connectivity_diagnostic")
