@@ -54,14 +54,24 @@ class FakeResumeApiRepo:
     def __init__(self, owner: UUID, resume_id: UUID):
         self.owner = owner
         self.resume_id = resume_id
+        self.name = "Original resume"
+        self.last_update = None
 
     def list(self, db, user_id):
-        return [{"id": str(self.resume_id), "user_id": str(self.owner)}] if user_id == self.owner else []
+        return [{"id": str(self.resume_id), "user_id": str(self.owner), "name": self.name}] if user_id == self.owner else []
 
     def get(self, db, user_id, resume_id):
         if user_id == self.owner and resume_id == self.resume_id:
-            return SimpleNamespace(id=resume_id, user_id=self.owner)
+            return SimpleNamespace(id=resume_id, user_id=self.owner, name=self.name)
         return None
+
+    def update(self, db, user_id, resume_id, payload):
+        if user_id != self.owner or resume_id != self.resume_id:
+            return None
+        self.last_update = payload
+        if "name" in payload:
+            self.name = payload["name"]
+        return {"id": str(self.resume_id), "user_id": str(self.owner), "name": self.name}
 
 
 @pytest.fixture
@@ -386,3 +396,52 @@ def test_user_b_cannot_access_user_a_resume(authenticated_app, monkeypatch):
     assert len(owner_list.json()) == 1
     assert other_list.json() == []
     assert blocked.status_code == 404
+
+
+def test_resume_rename_uses_put_updates_list_and_keeps_content_unchanged(authenticated_app, monkeypatch):
+    owner = uuid4()
+    resume_id = uuid4()
+    repo = FakeResumeApiRepo(owner, resume_id)
+    monkeypatch.setattr(resumes_api, "resumes_repo", repo)
+
+    renamed = authenticated_app.put(
+        f"/api/v1/resumes/{resume_id}",
+        headers={"Authorization": f"Bearer {token(owner)}"},
+        json={"name": "  AI Product Resume  "},
+    )
+    refreshed = authenticated_app.get(
+        "/api/v1/resumes",
+        headers={"Authorization": f"Bearer {token(owner)}"},
+    )
+
+    assert renamed.status_code == 200
+    assert renamed.json()["name"] == "AI Product Resume"
+    assert refreshed.json()[0]["name"] == "AI Product Resume"
+    assert repo.last_update == {"name": "AI Product Resume"}
+
+
+def test_resume_rename_rejects_other_user_and_invalid_names(authenticated_app, monkeypatch):
+    owner = uuid4()
+    other = uuid4()
+    resume_id = uuid4()
+    monkeypatch.setattr(resumes_api, "resumes_repo", FakeResumeApiRepo(owner, resume_id))
+
+    blocked = authenticated_app.put(
+        f"/api/v1/resumes/{resume_id}",
+        headers={"Authorization": f"Bearer {token(other)}"},
+        json={"name": "Other user's name"},
+    )
+    empty = authenticated_app.put(
+        f"/api/v1/resumes/{resume_id}",
+        headers={"Authorization": f"Bearer {token(owner)}"},
+        json={"name": "   "},
+    )
+    too_long = authenticated_app.put(
+        f"/api/v1/resumes/{resume_id}",
+        headers={"Authorization": f"Bearer {token(owner)}"},
+        json={"name": "x" * 251},
+    )
+
+    assert blocked.status_code == 404
+    assert empty.status_code == 422
+    assert too_long.status_code == 422

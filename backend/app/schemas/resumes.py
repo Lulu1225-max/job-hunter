@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.schemas.skills import DetectedResumeInformation, DetectedSkills, EducationField
 
@@ -24,8 +24,18 @@ class ResumeRead(ResumeCreate):
 
 
 class ResumeUpdate(BaseModel):
-    name: str | None = None
+    name: str | None = Field(default=None, min_length=1, max_length=250)
     is_default: bool | None = None
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        if not value:
+            raise ValueError("Resume name cannot be empty")
+        return value
 
 
 class ConfirmResumeSkills(BaseModel):
