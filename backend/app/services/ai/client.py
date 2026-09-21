@@ -6,7 +6,8 @@ from pathlib import Path
 from typing import TypeVar
 
 from openai import OpenAI
-from pydantic import BaseModel
+from openai import APIError
+from pydantic import BaseModel, ValidationError
 
 from app.core.config import settings
 from app.core.runtime_logging import get_server_logger
@@ -53,6 +54,19 @@ def _log_openai_failure(exc: Exception, flow: str, question_type: str | None = N
     logger.error("openai_call_failed %s", json.dumps(_error_details(exc, flow, question_type), separators=(",", ":")))
 
 
+def log_post_openai_stage(stage: str, flow: str, question_type: str | None = None,
+                          exc: Exception | None = None, parsed_output_present: bool | None = None) -> None:
+    fields = {
+        "flow": _safe_identifier(flow) or "unknown",
+        "question_type": _safe_identifier(question_type) if question_type else None,
+        "exception_type": type(exc).__name__ if exc else None,
+        "stage": _safe_identifier(stage) or "unknown",
+        "parsed_output_present": parsed_output_present,
+    }
+    # Never include exception text, payload, prompt, response body, or parsed output.
+    logger.warning("openai_postprocess %s", json.dumps(fields, separators=(",", ":")))
+
+
 class AIClient:
     def check_responses_api(self) -> None:
         """Minimal authenticated connectivity check; response content is discarded."""
@@ -97,17 +111,36 @@ class AIClient:
                 raise RuntimeError("OPENAI_API_KEY is not configured")
             prompt_path = Path(__file__).resolve().parents[2] / "prompts" / f"{prompt_name}.txt"
             instructions = prompt_path.read_text(encoding="utf-8")
-            response = OpenAI(api_key=settings.openai_api_key).responses.parse(
-                model=settings.openai_model,
-                instructions=instructions,
-                input=json.dumps(payload, ensure_ascii=False),
-                text_format=schema,
-            )
+            try:
+                response = OpenAI(api_key=settings.openai_api_key).responses.parse(
+                    model=settings.openai_model,
+                    instructions=instructions,
+                    input=json.dumps(payload, ensure_ascii=False),
+                    text_format=schema,
+                )
+            except ValidationError as exc:
+                log_post_openai_stage("schema_validation_failed", flow, context.get("question_type"), exc, False)
+                setattr(exc, "_openai_diagnostic_logged", True)
+                raise
+            except Exception as exc:
+                # SDK HTTP failures belong to the existing openai_call_failed
+                # diagnostic. Tests and compatible clients may expose an HTTP
+                # status without inheriting from the installed SDK's APIError.
+                if isinstance(exc, APIError) or getattr(exc, "status_code", None) is not None:
+                    raise
+                log_post_openai_stage("structured_parse_failed", flow, context.get("question_type"), exc, False)
+                setattr(exc, "_openai_diagnostic_logged", True)
+                raise
+            log_post_openai_stage("openai_http_success", flow, context.get("question_type"), parsed_output_present=response.output_parsed is not None)
             if response.output_parsed is None:
-                raise RuntimeError("OpenAI did not return a structured result")
+                log_post_openai_stage("output_parsed_missing", flow, context.get("question_type"), parsed_output_present=False)
+                exc = RuntimeError("OpenAI did not return a structured result")
+                setattr(exc, "_openai_diagnostic_logged", True)
+                raise exc
             return response.output_parsed
         except Exception as exc:
-            _log_openai_failure(exc, flow, context.get("question_type"))
+            if not getattr(exc, "_openai_diagnostic_logged", False):
+                _log_openai_failure(exc, flow, context.get("question_type"))
             raise
 
 

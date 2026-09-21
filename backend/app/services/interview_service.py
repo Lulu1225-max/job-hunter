@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.repositories.database import applications_repo,experiences_repo,interview_answers_repo,interview_questions_repo,interviews_repo,jobs_repo,profile_repo,resumes_repo,serialize_model
 from app.schemas.interviews import AnswerOutput,FeedbackOutput,ParsedQuestions,QuestionList
-from app.services.ai.client import ai_client
+from app.services.ai.client import ai_client, log_post_openai_stage
 from app.services.embedding_service import experience_source,fingerprint,job_source
 from app.services.experience_service import experience_service
 from app.services.matching import response_language,tokens
@@ -19,6 +19,9 @@ ANSWER_VERSION="phase7-answer-v1"
 FEEDBACK_VERSION="phase7-feedback-v1"
 TECHNICAL_CATEGORIES={"programming","data structures & algorithms","backend","database","networking","system design basics","debugging","technical"}
 PERSONAL_CUES=("tell me about a time","describe a time","your experience","你曾经","讲一次","经历")
+QUESTION_TYPE_VERSION={"behavioral":"beh","knowledge":"know","motivation":"motiv","resume_based":"resume","case":"case"}
+
+def answer_version(question_type:str,length:str)->str:return f"qrv1-{QUESTION_TYPE_VERSION[question_type]}-{length}"
 
 def _hash(value:Any)->str:return fingerprint(str(value or ""))
 def _strip_unsupported_numbers(text:str|None,sources:str)->str|None:
@@ -111,15 +114,19 @@ class InterviewService:
         if experience:
             track_event(user_id=user,event_name="experience_selected",job_id=job_id,experience_id=experience.id,status="success")
         context=self._answer_context(db,user,question,question_type);language=response_language(profile_repo.get(db,user));qh=_hash(f"{question.question}|{question.category}|{question_type}");eh=fingerprint(experience_source(experience)) if experience else None;jh=_hash(context)
-        version=f"{ANSWER_VERSION}-router-v1-{question_type}-{length}"
+        version=answer_version(question_type,length)
         cached=interview_answers_repo.current(db,user,question.id,experience.id if experience else None,qh,eh,jh,language,version)
         if cached and not regenerate:return {**serialize_model(cached),"cached":True}
         exp_data=serialize_model(experience) if experience else None
         generated=ai_client.structured_completion(prompt_name="interview_answer",schema=AnswerOutput,payload={"response_language":language,"answer_length":length,"question":serialize_model(question),"question_type":question_type,"selected_experience":exp_data,"answer_context":context},diagnostic_context={"flow":"interview_answer_generation","question_type":question_type})
-        grounding=f"{question.question}\n{context}\n{experience_source(experience) if experience else ''}"
-        values={key:_strip_unsupported_technologies(_strip_unsupported_numbers(value,grounding),grounding) for key,value in generated.model_dump().items()}
-        row=interview_answers_repo.create(db,{"user_id":user,"question_id":question.id,"experience_id":experience.id if experience else None,**values,"response_language":language,"follow_up_questions":[],"question_fingerprint":qh,"experience_fingerprint":eh,"job_fingerprint":jh,"answer_version":version})
-        db.commit()
+        try:
+            grounding=f"{question.question}\n{context}\n{experience_source(experience) if experience else ''}"
+            values={key:_strip_unsupported_technologies(_strip_unsupported_numbers(value,grounding),grounding) for key,value in generated.model_dump().items()}
+            row=interview_answers_repo.create(db,{"user_id":user,"question_id":question.id,"experience_id":experience.id if experience else None,**values,"response_language":language,"follow_up_questions":[],"question_fingerprint":qh,"experience_fingerprint":eh,"job_fingerprint":jh,"answer_version":version})
+            db.commit()
+        except Exception as exc:
+            log_post_openai_stage("answer_postprocessing_failed","interview_answer_generation",question_type,exc,True)
+            raise
         track_event(user_id=user,event_name="interview_answer_regenerated" if regenerate else "interview_answer_generated",job_id=job_id,experience_id=experience.id if experience else None,status="success",latency_ms=elapsed_ms(started),metadata={"language":language})
         return {**serialize_model(row),"cached":False}
     def feedback(self,db,user,question_id,answer,experience_id,answer_id):

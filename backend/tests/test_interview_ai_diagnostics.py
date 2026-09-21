@@ -71,3 +71,50 @@ def test_interview_api_still_returns_generic_503():
     assert raised.value.status_code == 503
     assert raised.value.detail == {"error": {"code": "AI_UNAVAILABLE", "message": "Interview AI is temporarily unavailable"}}
     assert "sk-super-secret" not in str(raised.value.detail)
+
+
+def test_successful_parse_logs_http_success_without_output(monkeypatch,caplog):
+    class SuccessResponses:
+        def parse(self,**kwargs):return type("Response",(),{"output_parsed":QuestionTypeResult(question_type="knowledge")})()
+    monkeypatch.setattr(settings,"openai_api_key","sk-super-secret")
+    monkeypatch.setattr(module,"OpenAI",lambda **kwargs:type("Client",(),{"responses":SuccessResponses()})())
+    caplog.set_level(logging.WARNING,logger="uvicorn.error")
+    result=module.ai_client.structured_completion(prompt_name="interview_question_classifier",schema=QuestionTypeResult,payload={"question":"PRIVATE QUESTION"},diagnostic_context={"flow":"question_classifier","question_type":"unknown"})
+    assert result.question_type=="knowledge"
+    assert '"stage":"openai_http_success"' in caplog.text
+    assert '"parsed_output_present":true' in caplog.text
+    assert "PRIVATE QUESTION" not in caplog.text
+
+
+def test_missing_parsed_output_has_distinct_safe_stage(monkeypatch,caplog):
+    class EmptyResponses:
+        def parse(self,**kwargs):return type("Response",(),{"output_parsed":None})()
+    monkeypatch.setattr(settings,"openai_api_key","sk-super-secret")
+    monkeypatch.setattr(module,"OpenAI",lambda **kwargs:type("Client",(),{"responses":EmptyResponses()})())
+    caplog.set_level(logging.WARNING,logger="uvicorn.error")
+    with pytest.raises(RuntimeError):module.ai_client.structured_completion(prompt_name="interview_answer",schema=QuestionTypeResult,payload={"answer":"PRIVATE ANSWER"},diagnostic_context={"flow":"interview_answer_generation","question_type":"case"})
+    assert '"stage":"output_parsed_missing"' in caplog.text
+    assert "PRIVATE ANSWER" not in caplog.text
+
+
+def test_schema_validation_failure_has_distinct_safe_stage(monkeypatch,caplog):
+    class InvalidResponses:
+        def parse(self,**kwargs):return QuestionTypeResult.model_validate({"question_type":"not-valid"})
+    monkeypatch.setattr(settings,"openai_api_key","sk-super-secret")
+    monkeypatch.setattr(module,"OpenAI",lambda **kwargs:type("Client",(),{"responses":InvalidResponses()})())
+    caplog.set_level(logging.WARNING,logger="uvicorn.error")
+    with pytest.raises(Exception):module.ai_client.structured_completion(prompt_name="interview_question_classifier",schema=QuestionTypeResult,payload={"question":"PRIVATE QUESTION"},diagnostic_context={"flow":"question_classifier","question_type":"unknown"})
+    assert '"stage":"schema_validation_failed"' in caplog.text
+    assert '"exception_type":"ValidationError"' in caplog.text
+    assert "PRIVATE QUESTION" not in caplog.text
+
+
+def test_non_sdk_parse_failure_has_distinct_safe_stage(monkeypatch,caplog):
+    class BrokenResponses:
+        def parse(self,**kwargs):raise TypeError("PRIVATE RESPONSE BODY")
+    monkeypatch.setattr(settings,"openai_api_key","sk-super-secret")
+    monkeypatch.setattr(module,"OpenAI",lambda **kwargs:type("Client",(),{"responses":BrokenResponses()})())
+    caplog.set_level(logging.WARNING,logger="uvicorn.error")
+    with pytest.raises(TypeError):module.ai_client.structured_completion(prompt_name="interview_answer",schema=QuestionTypeResult,payload={"answer":"PRIVATE ANSWER"},diagnostic_context={"flow":"interview_answer_generation","question_type":"knowledge"})
+    assert '"stage":"structured_parse_failed"' in caplog.text
+    assert "PRIVATE RESPONSE BODY" not in caplog.text and "PRIVATE ANSWER" not in caplog.text

@@ -1,3 +1,4 @@
+import logging
 from types import SimpleNamespace
 from uuid import uuid4
 import pytest
@@ -77,6 +78,26 @@ def test_answer_language_and_length_do_not_cross_cache(monkeypatch):
  assert keys[0][1]!=keys[1][1]
  monkeypatch.setattr(module.profile_repo,"get",lambda *args:{"ai_response_language":"english"});module.interview_service.generate_answer(Db(),owner,q.id,e.id,"1min")
  assert keys[-1][0]=="english"
+
+
+@pytest.mark.parametrize("question_type",["behavioral","knowledge","motivation","resume_based","case"])
+@pytest.mark.parametrize("length",["30s","1min","2min"])
+def test_router_answer_version_fits_database_column(question_type,length):
+ version=module.answer_version(question_type,length)
+ assert len(version)<=32
+
+
+def test_answer_storage_failure_has_safe_postprocessing_diagnostic(monkeypatch,caplog):
+ owner,app,q,e=setup(monkeypatch)
+ monkeypatch.setattr(module,"track_event",lambda **kwargs:None)
+ monkeypatch.setattr(module.interview_answers_repo,"current",lambda *args:None)
+ monkeypatch.setattr(module.interview_answers_repo,"create",lambda *args:(_ for _ in ()).throw(RuntimeError("PRIVATE ANSWER database failure")))
+ monkeypatch.setattr(module.ai_client,"structured_completion",lambda **kwargs:AnswerOutput(answer_1min="PRIVATE ANSWER"))
+ caplog.set_level(logging.WARNING,logger="uvicorn.error")
+ with pytest.raises(RuntimeError):module.interview_service.generate_answer(Db(),owner,q.id,e.id,"1min")
+ assert '"stage":"answer_postprocessing_failed"' in caplog.text
+ assert '"parsed_output_present":true' in caplog.text
+ assert "PRIVATE ANSWER" not in caplog.text
 
 
 def test_analytics_selection_and_generation_are_distinct_from_retrieval(monkeypatch):
