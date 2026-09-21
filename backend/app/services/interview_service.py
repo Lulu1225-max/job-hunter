@@ -6,7 +6,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.repositories.database import applications_repo,experiences_repo,interview_answers_repo,interview_questions_repo,interviews_repo,jobs_repo,profile_repo,resumes_repo,serialize_model
-from app.schemas.interviews import AnswerOutput,FeedbackOutput,ParsedQuestions,QuestionList
+from app.schemas.interviews import Answer30sOutput,Answer1minOutput,Answer2minOutput,FeedbackOutput,ParsedQuestions,QuestionList
 from app.services.ai.client import ai_client, log_post_openai_stage
 from app.services.embedding_service import experience_source,fingerprint,job_source
 from app.services.experience_service import experience_service
@@ -20,8 +20,15 @@ FEEDBACK_VERSION="phase7-feedback-v1"
 TECHNICAL_CATEGORIES={"programming","data structures & algorithms","backend","database","networking","system design basics","debugging","technical"}
 PERSONAL_CUES=("tell me about a time","describe a time","your experience","你曾经","讲一次","经历")
 QUESTION_TYPE_VERSION={"behavioral":"beh","knowledge":"know","motivation":"motiv","resume_based":"resume","case":"case"}
+ANSWER_FIELDS={"30s":"answer_30s","1min":"answer_1min","2min":"answer_2min"}
+ANSWER_SCHEMAS={"30s":Answer30sOutput,"1min":Answer1minOutput,"2min":Answer2minOutput}
 
 def answer_version(question_type:str,length:str)->str:return f"qrv1-{QUESTION_TYPE_VERSION[question_type]}-{length}"
+def answer_response(row:Any,length:str)->dict:
+    data=serialize_model(row)
+    for field in ANSWER_FIELDS.values():
+        if field!=ANSWER_FIELDS[length]:data.pop(field,None)
+    return {**data,"answer_length":length}
 
 def _hash(value:Any)->str:return fingerprint(str(value or ""))
 def _strip_unsupported_numbers(text:str|None,sources:str)->str|None:
@@ -116,9 +123,9 @@ class InterviewService:
         context=self._answer_context(db,user,question,question_type);language=response_language(profile_repo.get(db,user));qh=_hash(f"{question.question}|{question.category}|{question_type}");eh=fingerprint(experience_source(experience)) if experience else None;jh=_hash(context)
         version=answer_version(question_type,length)
         cached=interview_answers_repo.current(db,user,question.id,experience.id if experience else None,qh,eh,jh,language,version)
-        if cached and not regenerate:return {**serialize_model(cached),"cached":True}
+        if cached and not regenerate:return {**answer_response(cached,length),"cached":True}
         exp_data=serialize_model(experience) if experience else None
-        generated=ai_client.structured_completion(prompt_name="interview_answer",schema=AnswerOutput,payload={"response_language":language,"answer_length":length,"question":serialize_model(question),"question_type":question_type,"selected_experience":exp_data,"answer_context":context},diagnostic_context={"flow":"interview_answer_generation","question_type":question_type})
+        generated=ai_client.structured_completion(prompt_name="interview_answer",schema=ANSWER_SCHEMAS[length],payload={"response_language":language,"answer_length":length,"question":serialize_model(question),"question_type":question_type,"selected_experience":exp_data,"answer_context":context},diagnostic_context={"flow":"interview_answer_generation","question_type":question_type})
         try:
             grounding=f"{question.question}\n{context}\n{experience_source(experience) if experience else ''}"
             values={key:_strip_unsupported_technologies(_strip_unsupported_numbers(value,grounding),grounding) for key,value in generated.model_dump().items()}
@@ -128,7 +135,7 @@ class InterviewService:
             log_post_openai_stage("answer_postprocessing_failed","interview_answer_generation",question_type,exc,True)
             raise
         track_event(user_id=user,event_name="interview_answer_regenerated" if regenerate else "interview_answer_generated",job_id=job_id,experience_id=experience.id if experience else None,status="success",latency_ms=elapsed_ms(started),metadata={"language":language})
-        return {**serialize_model(row),"cached":False}
+        return {**answer_response(row,length),"cached":False}
     def feedback(self,db,user,question_id,answer,experience_id,answer_id):
         question=self._question(db,user,question_id);experience=experiences_repo.get(db,user,experience_id) if experience_id else None
         if experience_id and not experience:raise KeyError("Experience not found")

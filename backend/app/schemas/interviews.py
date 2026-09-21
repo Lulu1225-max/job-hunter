@@ -22,6 +22,9 @@ class RetrieveForQuestionRequest(BaseModel): limit:int=Field(default=3,ge=1,le=5
 class GenerateAnswerRequest(BaseModel): experience_id:UUID|None=None;answer_length:Literal["30s","1min","2min"]="1min";regenerate:bool=False;question_type:Literal["behavioral","knowledge","motivation","resume_based","case"]|None=None
 
 class AnswerOutput(BaseModel): answer_30s:str|None=None;answer_1min:str|None=None;answer_2min:str|None=None
+class Answer30sOutput(BaseModel): answer_30s:str
+class Answer1minOutput(BaseModel): answer_1min:str
+class Answer2minOutput(BaseModel): answer_2min:str
 class FeedbackOutput(BaseModel):
     strengths:list[str]=Field(default_factory=list);weaknesses:list[str]=Field(default_factory=list);missing_evidence:list[str]=Field(default_factory=list);structure:str;star_completeness:str;clarity:str;specificity:str;relevance:str;follow_up_questions:list[str]=Field(min_length=3,max_length=5);improved_answer:str
 class FeedbackRequest(BaseModel): answer:str=Field(min_length=2,max_length=12000);experience_id:UUID|None=None;answer_id:UUID|None=None

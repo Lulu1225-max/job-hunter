@@ -2,7 +2,7 @@ import logging
 from types import SimpleNamespace
 from uuid import uuid4
 import pytest
-from app.schemas.interviews import AnswerOutput,FeedbackOutput,InterviewCreate,ParsedQuestions,QuestionList
+from app.schemas.interviews import Answer1minOutput,Answer2minOutput,Answer30sOutput,AnswerOutput,FeedbackOutput,InterviewCreate,ParsedQuestions,QuestionList
 from app.services import interview_service as module
 
 class Db:
@@ -78,6 +78,27 @@ def test_answer_language_and_length_do_not_cross_cache(monkeypatch):
  assert keys[0][1]!=keys[1][1]
  monkeypatch.setattr(module.profile_repo,"get",lambda *args:{"ai_response_language":"english"});module.interview_service.generate_answer(Db(),owner,q.id,e.id,"1min")
  assert keys[-1][0]=="english"
+
+
+@pytest.mark.parametrize(("length","schema","field"),[
+ ("30s",Answer30sOutput,"answer_30s"),
+ ("1min",Answer1minOutput,"answer_1min"),
+ ("2min",Answer2minOutput,"answer_2min"),
+])
+def test_answer_generation_requests_and_returns_only_selected_length(monkeypatch,length,schema,field):
+ owner,app,q,e=setup(monkeypatch);captured=[]
+ monkeypatch.setattr(module,"track_event",lambda **kwargs:None)
+ monkeypatch.setattr(module.interview_answers_repo,"current",lambda *args:None)
+ def complete(**kwargs):
+  captured.append(kwargs)
+  return schema(**{field:"回答"})
+ monkeypatch.setattr(module.ai_client,"structured_completion",complete)
+ monkeypatch.setattr(module.interview_answers_repo,"create",lambda db,payload:obj(**{"id":uuid4(),"created_at":None,"updated_at":None,"feedback":None,"answer_30s":None,"answer_1min":None,"answer_2min":None,**payload}))
+ result=module.interview_service.generate_answer(Db(),owner,q.id,e.id,length)
+ assert captured[0]["schema"] is schema
+ assert captured[0]["payload"]["answer_length"]==length
+ assert result[field]=="回答" and result["answer_length"]==length
+ assert all(candidate==field or candidate not in result for candidate in module.ANSWER_FIELDS.values())
 
 
 @pytest.mark.parametrize("question_type",["behavioral","knowledge","motivation","resume_based","case"])

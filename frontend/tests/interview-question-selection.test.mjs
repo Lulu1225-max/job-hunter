@@ -22,7 +22,7 @@ test("retrieval requires and displays the selected question",()=>{
 test("answer generation still requires explicit Experience selection",()=>{
   assert.match(source,/questionType===\"behavioral\"/);
   assert.match(source,/questionType===\"behavioral\"&&!experienceId/);
-  assert.match(source,/regenerate:Boolean\(answer&&answer\.experience_id===\(experienceId\|\|null\)\)/);
+  assert.match(source,/regenerate:Boolean\(answer&&answer\.answer_length===answerLength&&answer\.experience_id===\(experienceId\|\|null\)\)/);
   assert.match(source,/setExperienceId\(""\)/);
 });
 
@@ -31,4 +31,16 @@ test("question router hides Experience Retrieval for non behavioral paths",()=>{
   assert.match(source,/questionType!==\"behavioral\"/);
   assert.match(source,/routeHelp_/);
   assert.match(source,/questions\/\$\{questionId\}\/route/);
+});
+
+test("only the selected answer length is rendered and used",()=>{
+  assert.match(source,/ANSWER_FIELD_BY_LENGTH/);
+  assert.match(source,/Info title=\{copy\[`answer\$\{answerLength\}`\]\} text=\{answerForLength\(answer,answerLength\)\}/);
+  assert.doesNotMatch(source,/Info title=\{copy\.answer30s\}.*Info title=\{copy\.answer1min\}.*Info title=\{copy\.answer2min\}/s);
+  assert.match(source,/const text=userAnswer\|\|answerForLength\(answer,answerLength\)\|\|""/);
+});
+
+test("regenerate applies only to the currently generated length",()=>{
+  assert.match(source,/answer\.answer_length===answerLength/);
+  assert.match(source,/setAnswerLength\(e\.target\.value\);setAnswer\(null\);setFeedback\(null\)/);
 });
