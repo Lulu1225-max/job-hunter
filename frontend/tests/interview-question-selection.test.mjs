@@ -19,6 +19,12 @@ test("retrieval requires and displays the selected question",()=>{
   assert.match(source,/copy\.selectQuestionHint/);
 });
 
+test("practice-question generation labels its existing topic input",()=>{
+  assert.match(source,/copy\.practiceTopic/);
+  assert.match(source,/placeholder=\{copy\.practiceTopicPlaceholder\}/);
+  assert.match(source,/onClick=\{generateQuestions\}/);
+});
+
 test("experience answer generation requires explicit Experience selection",()=>{
   assert.match(source,/questionType===\"experience\"/);
   assert.match(source,/questionType===\"experience\"&&!experienceId/);

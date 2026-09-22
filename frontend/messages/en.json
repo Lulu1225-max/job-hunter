@@ -308,6 +308,8 @@
     "selectedQuestion": "Selected question:",
     "selectQuestionHint": "Select an interview question first.",
     "addQuestion": "Add a question",
+    "practiceTopic": "Practice topic",
+    "practiceTopicPlaceholder": "Enter a role, skill, or interview topic, e.g. AI Product Manager / RAG / User Growth",
     "add": "Add",
     "generateQuestions": "Generate practice questions",
     "pasteTitle": "Parse pasted interview experience",

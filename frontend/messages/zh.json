@@ -309,6 +309,8 @@
     "selectedQuestion": "当前问题：",
     "selectQuestionHint": "请先选择一道面试问题。",
     "addQuestion": "添加问题",
+    "practiceTopic": "练习题方向",
+    "practiceTopicPlaceholder": "输入岗位、技能或面试主题，例如：AI 产品经理 / RAG / 用户增长",
     "add": "添加",
     "generateQuestions": "生成练习问题",
     "pasteTitle": "解析粘贴的面经",
