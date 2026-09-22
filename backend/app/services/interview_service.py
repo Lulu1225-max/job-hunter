@@ -19,7 +19,7 @@ ANSWER_VERSION="phase7-answer-v1"
 FEEDBACK_VERSION="phase7-feedback-v1"
 TECHNICAL_CATEGORIES={"programming","data structures & algorithms","backend","database","networking","system design basics","debugging","technical"}
 PERSONAL_CUES=("tell me about a time","describe a time","your experience","你曾经","讲一次","经历")
-QUESTION_TYPE_VERSION={"behavioral":"beh","knowledge":"know","motivation":"motiv","resume_based":"resume","case":"case"}
+QUESTION_TYPE_VERSION={"experience":"exp","knowledge":"know","motivation":"motiv","case":"case"}
 ANSWER_FIELDS={"30s":"answer_30s","1min":"answer_1min","2min":"answer_2min"}
 ANSWER_SCHEMAS={"30s":Answer30sOutput,"1min":Answer1minOutput,"2min":Answer2minOutput}
 
@@ -103,8 +103,8 @@ class InterviewService:
         return {"questions":saved}
     def retrieve(self,db,user,question_id,limit):
         question=self._question(db,user,question_id)
-        if classify_question(question.question,question.category)!="behavioral":
-            raise ValueError("Experience Retrieval is only available for behavioral questions")
+        if classify_question(question.question,question.category)!="experience":
+            raise ValueError("Experience Retrieval is only available for experience questions")
         context=self._context(db,user,question)
         app=applications_repo.get(db,user,question.application_id) if question.application_id else None
         if app and app.job_id:
@@ -113,9 +113,9 @@ class InterviewService:
     def generate_answer(self,db,user,question_id,experience_id,length,regenerate=False,question_type_hint=None):
         started=perf_counter()
         question=self._question(db,user,question_id);question_type=rule_question_type(question.question,question.category) or question_type_hint or classify_question(question.question,question.category)
-        experience=experiences_repo.get(db,user,experience_id) if experience_id and question_type=="behavioral" else None
-        if experience_id and question_type=="behavioral" and not experience:raise KeyError("Experience not found")
-        if question_type=="behavioral" and not experience:raise ValueError("Select an Experience before generating this answer")
+        experience=experiences_repo.get(db,user,experience_id) if experience_id and question_type=="experience" else None
+        if experience_id and question_type=="experience" and not experience:raise KeyError("Experience not found")
+        if question_type=="experience" and not experience:raise ValueError("Select an Experience before generating this answer")
         app=applications_repo.get(db,user,question.application_id) if question.application_id else None
         job_id=app.job_id if app else None
         if experience:
@@ -134,7 +134,7 @@ class InterviewService:
         except Exception as exc:
             log_post_openai_stage("answer_postprocessing_failed","interview_answer_generation",question_type,exc,True)
             raise
-        track_event(user_id=user,event_name="interview_answer_regenerated" if regenerate else "interview_answer_generated",job_id=job_id,experience_id=experience.id if experience else None,status="success",latency_ms=elapsed_ms(started),metadata={"language":language})
+        track_event(user_id=user,event_name="interview_answer_regenerated" if regenerate else "interview_answer_generated",job_id=job_id,experience_id=experience.id if experience else None,status="success",latency_ms=elapsed_ms(started),metadata={"language":language,"question_type":question_type})
         return {**answer_response(row,length),"cached":False}
     def feedback(self,db,user,question_id,answer,experience_id,answer_id):
         question=self._question(db,user,question_id);experience=experiences_repo.get(db,user,experience_id) if experience_id else None
@@ -168,7 +168,7 @@ class InterviewService:
     def route(self,db,user,question_id):return route_summary(self._question(db,user,question_id))
     def _answer_context(self,db,user,question,question_type):
         job_context=self._context(db,user,question)["text"]
-        if question_type in {"knowledge","behavioral"}:return job_context
+        if question_type=="knowledge":return job_context
         if question_type=="case":return f"Job context:\n{job_context}\nUse a structured clarify-assumptions-users-goals-options-tradeoffs-metrics framework."
         profile=profile_repo.get(db,user) or {}
         profile_text="\n".join(f"{key}: {value}" for key,value in profile.items() if key not in {"id","user_id","created_at","updated_at"} and value not in (None,"",[],{}))
@@ -176,7 +176,7 @@ class InterviewService:
         if default:
             resume=resumes_repo.get(db,user,UUID(str(default["id"])))
             resume_text=(resume.extracted_text or "")[:12000] if resume else ""
-        if question_type=="resume_based":return f"Profile:\n{profile_text}\nResume:\n{resume_text}"
+        if question_type=="experience":return f"Job context:\n{job_context}\nProfile:\n{profile_text}\nResume:\n{resume_text}"
         return f"Job context:\n{job_context}\nProfile:\n{profile_text}\nResume:\n{resume_text}"
     def _technical(self,question):return question.category.casefold() in TECHNICAL_CATEGORIES and not any(cue in question.question.casefold() for cue in PERSONAL_CUES)
 

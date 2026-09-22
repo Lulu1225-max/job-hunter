@@ -17,7 +17,7 @@ def test_runtime_logger_is_error_level_and_has_stream_handler():
 def test_openai_failure_calls_runtime_logger_without_exception_payload(monkeypatch):
     error=RuntimeError("sk-secret FULL PROMPT PRIVATE RESUME PRIVATE JD PRIVATE ANSWER")
     called=Mock();monkeypatch.setattr(client.logger,"error",called)
-    client._log_openai_failure(error,"interview_answer_generation","behavioral")
+    client._log_openai_failure(error,"interview_answer_generation","experience")
     called.assert_called_once()
     rendered=" ".join(str(value) for value in called.call_args.args)
     assert "openai_call_failed" in rendered

@@ -2,7 +2,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-QuestionType = Literal["behavioral", "knowledge", "motivation", "resume_based", "case"]
+QuestionType = Literal["experience", "knowledge", "motivation", "case"]
 
 
 class QuestionTypeResult(BaseModel):

@@ -18,6 +18,7 @@ def setup(monkeypatch,category="behavioral",question_text="Tell me about a time 
  monkeypatch.setattr(module.interview_questions_repo,"get",lambda db,user,id:question if user==owner and id==question.id else None)
  monkeypatch.setattr(module.experiences_repo,"get",lambda db,user,id:experience if user==owner and id==experience.id else None)
  monkeypatch.setattr(module.profile_repo,"get",lambda db,user:{"ai_response_language":"chinese"})
+ monkeypatch.setattr(module.resumes_repo,"default",lambda db,user:None)
  monkeypatch.setattr(module,"serialize_model",lambda row:{k:(str(v) if hasattr(v,"hex") else v) for k,v in vars(row).items() if not k.startswith("_")})
  return owner,application,question,experience
 
@@ -101,7 +102,7 @@ def test_answer_generation_requests_and_returns_only_selected_length(monkeypatch
  assert all(candidate==field or candidate not in result for candidate in module.ANSWER_FIELDS.values())
 
 
-@pytest.mark.parametrize("question_type",["behavioral","knowledge","motivation","resume_based","case"])
+@pytest.mark.parametrize("question_type",["experience","knowledge","motivation","case"])
 @pytest.mark.parametrize("length",["30s","1min","2min"])
 def test_router_answer_version_fits_database_column(question_type,length):
  version=module.answer_version(question_type,length)
@@ -135,10 +136,12 @@ def test_analytics_selection_and_generation_are_distinct_from_retrieval(monkeypa
  service=module.interview_service
  service.generate_answer(Db(),owner,q.id,e.id,"1min")
  assert [x["event_name"] for x in events]==["experience_selected","interview_answer_generated"]
+ assert events[-1]["metadata"]["question_type"]=="experience"
  events.clear()
  service.generate_answer(Db(),owner,q.id,e.id,"1min",True)
  assert [x["event_name"] for x in events]==["experience_selected","interview_answer_regenerated"]
  assert events[-1]["latency_ms"]>=0 and events[-1]["experience_id"]==e.id
+ assert events[-1]["metadata"]["question_type"]=="experience"
 
 def test_feedback_supports_user_answer_grounding_followups_and_cache(monkeypatch):
  owner,app,q,e=setup(monkeypatch);calls=[]

@@ -19,16 +19,16 @@ test("retrieval requires and displays the selected question",()=>{
   assert.match(source,/copy\.selectQuestionHint/);
 });
 
-test("answer generation still requires explicit Experience selection",()=>{
-  assert.match(source,/questionType===\"behavioral\"/);
-  assert.match(source,/questionType===\"behavioral\"&&!experienceId/);
+test("experience answer generation requires explicit Experience selection",()=>{
+  assert.match(source,/questionType===\"experience\"/);
+  assert.match(source,/questionType===\"experience\"&&!experienceId/);
   assert.match(source,/regenerate:Boolean\(answer&&answer\.answer_length===answerLength&&answer\.experience_id===\(experienceId\|\|null\)\)/);
   assert.match(source,/setExperienceId\(""\)/);
 });
 
-test("question router hides Experience Retrieval for non behavioral paths",()=>{
-  assert.match(source,/questionType===\"behavioral\"&&<>/);
-  assert.match(source,/questionType!==\"behavioral\"/);
+test("question router hides Experience Retrieval for non experience paths",()=>{
+  assert.match(source,/questionType===\"experience\"&&<>/);
+  assert.match(source,/questionType!==\"experience\"/);
   assert.match(source,/routeHelp_/);
   assert.match(source,/questions\/\$\{questionId\}\/route/);
 });

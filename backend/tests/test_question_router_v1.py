@@ -9,10 +9,10 @@ from app.services import question_router as router_module
 
 
 def test_explainable_rules_cover_all_question_types():
-    assert router_module.classify_question("Tell me about a time you resolved conflict", "behavioral") == "behavioral"
+    assert router_module.classify_question("Tell me about a time you resolved conflict", "behavioral") == "experience"
     assert router_module.classify_question("What is a database index?", "technical") == "knowledge"
     assert router_module.classify_question("Why do you want this role?", "motivation") == "motivation"
-    assert router_module.classify_question("Walk me through your resume", "resume") == "resume_based"
+    assert router_module.classify_question("Walk me through your resume", "resume") == "experience"
     assert router_module.classify_question("Estimate the market size for this product", "case") == "case"
 
 
@@ -28,15 +28,15 @@ def test_classifier_failure_falls_back_without_forcing_experience(monkeypatch):
     assert router_module.classify_question("An ambiguous interview prompt", "other") == "knowledge"
 
 
-def test_non_behavioral_retrieval_is_blocked(monkeypatch):
+def test_non_experience_retrieval_is_blocked(monkeypatch):
     question=SimpleNamespace(id=uuid4(),question="What is product-market fit?",category="knowledge",application_id=None)
     monkeypatch.setattr(interview_module.interview_questions_repo,"get",lambda *args:question)
     monkeypatch.setattr(interview_module.experience_service,"retrieve",lambda *args:pytest.fail("knowledge queried Experience Library"))
-    with pytest.raises(ValueError,match="only available for behavioral"):
+    with pytest.raises(ValueError,match="only available for experience"):
         interview_module.interview_service.retrieve(object(),uuid4(),question.id,3)
 
 
-def test_behavioral_question_uses_experience_retrieval(monkeypatch):
+def test_experience_question_uses_experience_retrieval(monkeypatch):
     owner=uuid4();question=SimpleNamespace(id=uuid4(),question="Tell me about a time you led a team",category="behavioral",application_id=None,company="Acme",role="PM")
     calls=[]
     monkeypatch.setattr(interview_module.interview_questions_repo,"get",lambda *args:question)
@@ -56,14 +56,14 @@ def test_motivation_context_uses_job_profile_and_resume(monkeypatch):
     assert "Job Description" in text and "target_roles" in text and "Built a real product" in text
 
 
-def test_resume_based_context_uses_resume_and_profile_without_job(monkeypatch):
+def test_experience_context_uses_job_resume_and_profile(monkeypatch):
     owner=uuid4();question=SimpleNamespace(application_id=None,company=None,role=None)
     monkeypatch.setattr(interview_module.interview_service,"_context",lambda *args:{"text":"unused job"})
     monkeypatch.setattr(interview_module.profile_repo,"get",lambda *args:{"major":"Computer Science"})
     monkeypatch.setattr(interview_module.resumes_repo,"default",lambda *args:{"id":str(uuid4())})
     monkeypatch.setattr(interview_module.resumes_repo,"get",lambda *args:SimpleNamespace(extracted_text="Resume evidence"))
-    text=interview_module.interview_service._answer_context(object(),owner,question,"resume_based")
-    assert "Computer Science" in text and "Resume evidence" in text and "unused job" not in text
+    text=interview_module.interview_service._answer_context(object(),owner,question,"experience")
+    assert "Computer Science" in text and "Resume evidence" in text and "unused job" in text
 
 
 def test_case_route_does_not_require_experience():
