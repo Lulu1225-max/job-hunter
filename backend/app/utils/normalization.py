@@ -32,6 +32,7 @@ def canonical_status(value: str | None) -> str:
         "笔试": "oa",
         "interview": "interview",
         "面试": "interview",
+        "final_interview": "final_interview",
         "final interview": "final_interview",
         "终面": "final_interview",
         "offer": "offer",

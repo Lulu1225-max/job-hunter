@@ -59,6 +59,14 @@ class FakeApplicationsRepo:
             return None
         return record
 
+    def update_status(self, db, user_id, application_id, status):
+        record = self.get(db, user_id, application_id)
+        if not record:
+            return None
+        from app.utils.normalization import canonical_status
+        record["status"] = canonical_status(status)
+        return record
+
 
 class FakeDb:
     def commit(self) -> None:
@@ -132,6 +140,24 @@ def test_authenticated_user_b_cannot_access_user_a_application(auth_client):
         headers={"Authorization": f"Bearer {signed_token(user_b, 'b@example.com')}"},
     )
     assert blocked.status_code == 404
+
+
+def test_final_interview_status_round_trips_through_api(auth_client):
+    user_id = uuid4()
+    headers = {"Authorization": f"Bearer {signed_token(user_id, 'status@example.com')}"}
+    created = auth_client.post(
+        "/api/v1/applications",
+        headers=headers,
+        json={"company": "Status Co", "role": "Candidate", "status": "saved"},
+    )
+
+    updated = auth_client.patch(
+        f"/api/v1/applications/{created.json()['id']}/status?status=final_interview",
+        headers=headers,
+    )
+
+    assert updated.status_code == 200
+    assert updated.json()["status"] == "final_interview"
 
 
 def test_forged_token_is_rejected(auth_client):
