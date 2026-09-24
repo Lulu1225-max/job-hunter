@@ -5,17 +5,28 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        ink: "#172033",
-        muted: "#667085",
-        paper: "#f8fafc",
-        line: "#d9e2ec",
-        brand: "#2563eb",
-        skysoft: "#eaf4ff",
-        mintsoft: "#e9fbf4",
-        ambersoft: "#fff7df"
+        ink: "hsl(var(--text-primary) / <alpha-value>)",
+        muted: "hsl(var(--text-secondary) / <alpha-value>)",
+        paper: "hsl(var(--background) / <alpha-value>)",
+        white: "hsl(var(--surface) / <alpha-value>)",
+        "surface-muted": "hsl(var(--surface-muted) / <alpha-value>)",
+        line: "hsl(var(--border) / <alpha-value>)",
+        brand: "hsl(var(--primary) / <alpha-value>)",
+        "brand-hover": "hsl(var(--primary-hover) / <alpha-value>)",
+        "brand-active": "hsl(var(--primary-active) / <alpha-value>)",
+        skysoft: "hsl(var(--primary-soft) / <alpha-value>)",
+        mintsoft: "hsl(var(--success-soft) / <alpha-value>)",
+        ambersoft: "hsl(var(--warning-soft) / <alpha-value>)"
+      },
+      borderRadius: {
+        sm: "var(--radius-sm)",
+        md: "var(--radius-md)",
+        lg: "var(--radius-lg)"
       },
       boxShadow: {
-        card: "0 8px 24px rgb(37 99 235 / 0.06)"
+        sm: "var(--shadow-sm)",
+        card: "var(--shadow-sm)",
+        md: "var(--shadow-md)"
       }
     }
   },

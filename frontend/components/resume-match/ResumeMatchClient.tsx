@@ -45,22 +45,22 @@ export function ResumeMatchClient({initialJobId, initialResumeId, copy}: {initia
   }
 
   return (
-    <div className="space-y-6">
+    <div className="page-stack">
       <div>
-        <h1 className="text-3xl font-semibold text-ink">{copy.title}</h1>
-        <p className="mt-2 text-muted">{copy.subtitle}</p>
+        <h1 className="page-heading">{copy.title}</h1>
+        <p className="page-subtitle">{copy.subtitle}</p>
       </div>
-      <section className="grid gap-3 rounded-lg border border-line bg-white p-5 shadow-card md:grid-cols-[1fr_1fr_auto]">
+      <section className="surface-card grid gap-4 p-6 md:grid-cols-[1.4fr_1fr_auto]">
         <div><input role="combobox" aria-controls="job-results" aria-expanded="true" value={jobSearch} onChange={event=>setJobSearch(event.target.value)} placeholder={copy.searchJobs} className="h-10 w-full rounded-md border border-line px-3 text-sm"/><select id="job-results" size={6} value={jobId} onChange={event=>{const chosen=[selectedJob,...jobs].find(job=>job?.id===event.target.value)||null;setSelectedJob(chosen);setJobId(event.target.value)}} className="mt-2 w-full rounded-md border border-line px-3 py-2 text-sm"><option value="">{copy.selectJob}</option>{[...(selectedJob&&!jobs.some(job=>job.id===selectedJob.id)?[selectedJob]:[]),...jobs].map(job=><option key={job.id} value={job.id}>{[job.company,job.role||copy.roleMissing,job.location,job.graduation_cohort].filter(Boolean).join(" · ")}{job.match?.status==="limited_data"?` · ${copy.limitedData}`:""}</option>)}</select>{!jobLoading&&jobs.length===0&&<p className="mt-2 text-sm text-muted">{copy.noMatchingJobs}</p>}</div>
         <select value={resumeId} onChange={(event) => setResumeId(event.target.value)} className="h-10 rounded-md border border-line px-3 text-sm">
           <option value="">{copy.selectResume}</option>{resumes.map((resume) => <option key={resume.id} value={resume.id}>{resume.name}{resume.is_default ? ` (${copy.defaultResume})` : ""}</option>)}
         </select>
-        <button disabled={!jobId||!resumeId||running} onClick={runMatch} className="rounded-md bg-brand px-4 text-sm font-medium text-white shadow-card disabled:opacity-50">{running?copy.running:copy.run}</button>
+        <button disabled={!jobId||!resumeId||running} onClick={runMatch} className="btn-primary self-start">{running?copy.running:copy.run}</button>
       </section>
       {!resumeId&&<p className="text-sm text-muted">{copy.resumeRequired}</p>}{error&&<p className="text-sm text-red-700">{error}</p>}
       {result && (
         <section className="space-y-4">
-          <div className="rounded-lg border border-line bg-white p-5 shadow-card">
+          <div className="surface-card border-l-4 border-l-brand p-6">
             <h2 className="text-2xl font-semibold text-ink">{result.status==="semantic_only"?copy.potentialMatch:`${result.overall_score}% ${copy.overall}`}</h2>
             {result.status==="semantic_only"&&<p className="mt-2 text-sm text-muted">{copy.semantic}: {result.semantic_score}% · {copy.limitedSignals}</p>}
             <p className="mt-3 text-sm text-muted">{copy.keyword}: {result.keyword_score===null?copy.keywordUnavailable:`${result.keyword_score}%`} · {copy.semantic}: {result.semantic_score}% · {copy.experience}: {result.experience_relevance_score===null?copy.experienceUnavailable:`${result.experience_relevance_score}%`}</p>
@@ -71,11 +71,11 @@ export function ResumeMatchClient({initialJobId, initialResumeId, copy}: {initia
             <Info title={copy.missing} items={[...result.missing_keywords, ...result.missing_skills]} />
             <Info title={copy.weakAreas} items={result.weak_areas} />
           </div>
-          <section className="rounded-lg border border-line bg-white p-5 shadow-card">
+          <section className="surface-card p-6">
             <h2 className="text-lg font-semibold text-ink">{copy.evidence}</h2>
             {result.evidence.map((item) => <p key={`${item.skill}-${item.snippet}`} className="mt-3 text-sm text-muted"><span className="font-medium text-ink">{item.skill}</span>: “{item.snippet}”</p>)}
           </section>
-          <section className="rounded-lg border border-line bg-white p-5 shadow-card">
+          <section className="surface-card p-6">
             <h2 className="text-lg font-semibold text-ink">{copy.improvements}</h2>
             {result.suggested_resume_improvements.map((item) => <p key={item.text} className="mt-3 text-sm text-muted"><span className="font-medium text-ink">{item.type}</span>: {item.text}</p>)}
           </section>
@@ -86,5 +86,5 @@ export function ResumeMatchClient({initialJobId, initialResumeId, copy}: {initia
 }
 
 function Info({title, items}: {title: string; items: string[]}) {
-  return <div className="rounded-lg border border-line bg-white p-5 shadow-card"><h2 className="text-lg font-semibold text-ink">{title}</h2><p className="mt-3 text-sm text-muted">{items.length ? items.join(" · ") : "暂无"}</p></div>;
+  return <div className="surface-card p-6"><h2 className="text-lg font-semibold text-ink">{title}</h2><p className="mt-3 text-sm leading-6 text-muted">{items.length ? items.join(" · ") : "暂无"}</p></div>;
 }
