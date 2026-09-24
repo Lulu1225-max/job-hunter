@@ -74,6 +74,7 @@
     "roleMissing": "未填写岗位",
     "company": "公司",
     "role": "岗位",
+    "applicationDate": "申请日期",
     "detailTitle": "申请详情",
     "detailSubtitle": "这条记录来自持久化的申请数据库。",
     "add": "添加申请",

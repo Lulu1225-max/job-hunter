@@ -74,6 +74,7 @@
     "roleMissing": "Role not recorded",
     "company": "Company",
     "role": "Role",
+    "applicationDate": "Application Date",
     "detailTitle": "Application Detail",
     "detailSubtitle": "This record is loaded from the persisted applications database.",
     "add": "Add Application",

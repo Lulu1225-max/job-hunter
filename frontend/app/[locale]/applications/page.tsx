@@ -11,6 +11,7 @@ export default async function ApplicationsPage({params, searchParams}: {params: 
     subtitle: t("applications.subtitle"),
     company: t("applications.company"),
     role: t("applications.role"),
+    applicationDate: t("applications.applicationDate"),
     add: t("applications.add"),
     saving: t("applications.saving"),
     appliedGroup: t("applications.groups.applied"),

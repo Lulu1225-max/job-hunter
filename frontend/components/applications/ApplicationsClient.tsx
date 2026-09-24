@@ -20,6 +20,7 @@ export function ApplicationsClient({locale, statusFilter, copy}: {locale: string
   const [applications, setApplications] = useState<Application[]>([]);
   const [company, setCompany] = useState("");
   const [role, setRole] = useState("");
+  const [applicationDate, setApplicationDate] = useState(todayInputValue);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -40,7 +41,7 @@ export function ApplicationsClient({locale, statusFilter, copy}: {locale: string
   async function createApplication() {
     if (!company.trim()) return;
     setSaving(true);setError(null);
-    try {await apiSend<Application>("/api/v1/applications", "POST", {company, role:role.trim()||null, status: "saved", source: "manual"});setCompany("");setRole("");await load()} catch(err) {setError((err as Error).message)} finally {setSaving(false)}
+    try {await apiSend<Application>("/api/v1/applications", "POST", {company, role:role.trim()||null, application_date:applicationDate, status: "saved", source: "manual"});setCompany("");setRole("");setApplicationDate(todayInputValue());await load()} catch(err) {setError((err as Error).message)} finally {setSaving(false)}
   }
 
   async function changeStatus(id: string, status: string) {
@@ -60,9 +61,10 @@ export function ApplicationsClient({locale, statusFilter, copy}: {locale: string
         <h1 className="text-3xl font-semibold text-ink">{copy.title}</h1>
         <p className="mt-2 text-muted">{copy.subtitle}</p>
       </div>
-      <section className="grid gap-3 rounded-lg border border-line bg-white p-5 shadow-card md:grid-cols-[1fr_1fr_auto]">
+      <section className="grid gap-3 rounded-lg border border-line bg-white p-5 shadow-card md:grid-cols-[1fr_1fr_12rem_auto]">
         <label className="text-sm font-medium text-ink">{copy.company}<input value={company} onChange={(event) => setCompany(event.target.value)} className="mt-1 h-10 w-full rounded-md border border-line px-3 text-sm outline-none focus:border-brand focus:ring-4 focus:ring-blue-100" /></label>
         <label className="text-sm font-medium text-ink">{copy.role}<input value={role} onChange={(event) => setRole(event.target.value)} className="mt-1 h-10 w-full rounded-md border border-line px-3 text-sm outline-none focus:border-brand focus:ring-4 focus:ring-blue-100" /></label>
+        <label className="text-sm font-medium text-ink">{copy.applicationDate}<input type="date" value={applicationDate} onChange={(event) => setApplicationDate(event.target.value)} className="mt-1 h-10 w-full rounded-md border border-line px-3 text-sm" /></label>
         <button disabled={saving||!company.trim()} onClick={createApplication} className="focus-ring mt-6 inline-flex h-10 items-center justify-center gap-2 rounded-md bg-brand px-4 text-sm font-medium text-white shadow-card hover:bg-blue-700 disabled:opacity-50">
           <Plus className="h-4 w-4" />
           {saving?copy.saving:copy.add}
@@ -89,6 +91,13 @@ export function ApplicationsClient({locale, statusFilter, copy}: {locale: string
       </section>
     </div>
   );
+}
+
+function todayInputValue(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function StateCard({text}: {text: string}) {
