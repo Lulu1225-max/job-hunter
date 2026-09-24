@@ -203,9 +203,26 @@ export async function loginWithPassword(email: string, password: string): Promis
   return setSession(await response.json());
 }
 
-export async function registerWithPassword(name: string, email: string, password: string): Promise<AuthSession | null> {
+export function buildEmailConfirmationRedirect(locale: string, canonicalOrigin?: string, currentOrigin?: string): string {
+  const configuredOrigin = canonicalOrigin?.trim();
+  const fallbackOrigin = currentOrigin?.trim() || "http://localhost:3000";
+  const originValue = configuredOrigin || fallbackOrigin;
+  const absoluteOrigin = /^https?:\/\//i.test(originValue) ? originValue : `https://${originValue}`;
+  const origin = new URL(absoluteOrigin).origin;
+  const supportedLocale = locale === "zh" ? "zh" : "en";
+  return new URL(`/${supportedLocale}/login`, `${origin}/`).toString();
+}
+
+export async function registerWithPassword(name: string, email: string, password: string, locale: string): Promise<AuthSession | null> {
   requireSupabaseConfig();
-  const response = await fetch(`${SUPABASE_URL.replace(/\/$/, "")}/auth/v1/signup`, {
+  const redirectTo = buildEmailConfirmationRedirect(
+    locale,
+    process.env.NEXT_PUBLIC_SITE_URL,
+    typeof window === "undefined" ? undefined : window.location.origin,
+  );
+  const signupUrl = new URL(`${SUPABASE_URL.replace(/\/$/, "")}/auth/v1/signup`);
+  signupUrl.searchParams.set("redirect_to", redirectTo);
+  const response = await fetch(signupUrl.toString(), {
     method: "POST",
     headers: {apikey: SUPABASE_PUBLISHABLE_KEY, "Content-Type": "application/json"},
     body: JSON.stringify({email, password, data: {name}}),

@@ -19,7 +19,7 @@ export function RegisterClient({locale, copy}: {locale: string; copy: Record<str
     setError(null);
     setMessage(null);
     try {
-      const session = await registerWithPassword(name, email, password);
+      const session = await registerWithPassword(name, email, password, locale);
       if (session) {
         router.push(`/${locale}/dashboard`);
       } else {
