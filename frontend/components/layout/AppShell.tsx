@@ -17,6 +17,14 @@ export function AppShell({children, locale}: {children: React.ReactNode; locale:
   const otherLocale = locale === "zh" ? "en" : "zh";
   const withoutLocale = pathname.replace(/^\/(en|zh)/, "") || "/dashboard";
   const isAuthPage = withoutLocale.startsWith("/login") || withoutLocale.startsWith("/register");
+  const currentNavItem = navItems.find((item) => withoutLocale === item.href || withoutLocale.startsWith(`${item.href}/`));
+  const auxiliaryPageKeys: Record<string, string> = {
+    "/profile": "nav.profile",
+    "/analytics": "nav.analytics",
+    "/login": "auth.login",
+    "/register": "auth.register"
+  };
+  const currentPageLabel = t(currentNavItem?.labelKey ?? auxiliaryPageKeys[withoutLocale] ?? "nav.dashboard");
   const [isSignedIn, setIsSignedIn] = useState(false);
 
   useEffect(() => {
@@ -68,15 +76,11 @@ export function AppShell({children, locale}: {children: React.ReactNode; locale:
       <div className="lg:pl-72">
         <header className="sticky top-0 z-10 border-b border-line bg-paper/90 backdrop-blur-md">
           <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6 lg:px-10">
-            <div className="flex items-center gap-3">
-              <span className="flex h-9 w-9 items-center justify-center rounded-md border border-line bg-white shadow-sm">
-                <BrandMark className="h-8 w-8" />
-              </span>
-              <div>
-              <div className="text-lg font-semibold text-ink">Job Hunter</div>
-              <div className="text-xs text-muted">{t("app.chineseSubtitle")}</div>
-              </div>
-            </div>
+            <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-2 text-sm">
+              <Link href={`/${locale}/dashboard`} className="focus-ring rounded-sm text-muted hover:text-brand">Job Hunter</Link>
+              <span aria-hidden="true" className="text-muted/45">/</span>
+              <span aria-current="page" className="truncate font-semibold text-ink">{currentPageLabel}</span>
+            </nav>
             <div className="flex items-center gap-3">
               <Link
                 href={`/${otherLocale}${withoutLocale}`}
