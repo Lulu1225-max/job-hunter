@@ -283,7 +283,7 @@ export function ResumesClient({locale, copy}: {locale: string; copy: Record<stri
               <p className="mt-4 text-sm text-muted">{copy.status}: {resume.extracted_text ? copy.extracted : copy.pending}</p>
               <div className="mt-3 flex flex-wrap gap-1">
                 {SKILL_CATEGORIES.flatMap((category) => resume.detected_skills?.[category] ?? []).map((skill) => (
-                  <span key={skill} className="rounded bg-blue-50 px-2 py-1 text-xs text-blue-700">{skill}</span>
+                  <span key={skill} className="rounded-md border border-brand/10 bg-skysoft px-2.5 py-1 text-xs font-medium text-brand">{skill}</span>
                 ))}
               </div>
               <div className="mt-5 flex flex-wrap gap-2">
