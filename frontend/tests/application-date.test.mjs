@@ -9,3 +9,11 @@ test("manual Application creation defaults and submits application_date", () => 
   assert.match(source, /type="date" value=\{applicationDate\}/);
   assert.match(source, /application_date:applicationDate/);
 });
+
+test("manual Application creation supports deadline and custom delete confirmation", () => {
+  assert.match(source, /deadline:deadline\|\|null/);
+  assert.match(source, /applicationDeadline/);
+  assert.match(source, /role="dialog"/);
+  assert.match(source, /apiSend<void>\(`\/api\/v1\/applications\/\$\{pendingDelete\.id\}`, "DELETE"\)/);
+  assert.doesNotMatch(source, /window\.confirm|\bconfirm\(/);
+});

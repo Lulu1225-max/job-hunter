@@ -1,23 +1,28 @@
 import {useTranslations} from "next-intl";
 import Link from "next/link";
 import {Badge} from "@/components/ui/Badge";
+import {Trash2} from "lucide-react";
 
-type ApplicationCardProps = {
-  application: {
+type ApplicationCardData = {
     id: string;
     company: string;
     role?: string | null;
     status: string;
     application_date?: string | null;
     deadline?: string | null;
-  };
+};
+
+type ApplicationCardProps = {
+  application: ApplicationCardData;
   locale?: string;
   onStatusChange?: (id: string, status: string) => void;
+  onDelete?: (application: ApplicationCardData) => void;
+  deleteLabel?: string;
 };
 
 const statuses = ["applied", "oa", "interview", "offer", "rejected", "saved", "final_interview", "withdrawn"];
 
-export function ApplicationCard({application, locale, onStatusChange}: ApplicationCardProps) {
+export function ApplicationCard({application, locale, onStatusChange, onDelete, deleteLabel}: ApplicationCardProps) {
   const t = useTranslations();
   const date = application.application_date || application.deadline;
   const body = (
@@ -60,6 +65,12 @@ export function ApplicationCard({application, locale, onStatusChange}: Applicati
             <option key={status} value={status}>{t(`status.${status}`)}</option>
           ))}
         </select>
+      )}
+      {onDelete && (
+        <button type="button" onClick={() => onDelete(application)} className="mt-3 inline-flex items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50">
+          <Trash2 className="h-4 w-4" />
+          {deleteLabel}
+        </button>
       )}
     </article>
   );
