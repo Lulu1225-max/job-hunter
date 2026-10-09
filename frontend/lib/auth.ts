@@ -1,6 +1,7 @@
 "use client";
 
 const SESSION_KEY = "jobpilot.supabase.session";
+const RECOVERY_SESSION_KEY = "jobpilot.supabase.recovery";
 const AUTH_CHANGE_EVENT = "jobpilot-auth-change";
 const REFRESH_MARGIN_SECONDS = 60;
 
@@ -13,6 +14,39 @@ export type AuthSession = {
   user?: {id: string; email?: string; [key: string]: unknown};
   [key: string]: unknown;
 };
+
+export type RecoverySession = {
+  access_token: string;
+  refresh_token?: string;
+  expires_at?: number;
+  type: "recovery";
+};
+
+export class RecoverySessionError extends Error {}
+
+export class RecoveryOtpError extends Error {
+  readonly status: number | null;
+  readonly errorType: string;
+
+  constructor(status: number | null, errorType: string) {
+    super("Recovery OTP verification failed.");
+    this.name = "RecoveryOtpError";
+    this.status = status;
+    this.errorType = errorType;
+  }
+}
+
+export class PasswordResetRequestError extends Error {
+  readonly status: number | null;
+  readonly errorType: string;
+
+  constructor(status: number | null, errorType: string) {
+    super("Password recovery email failed.");
+    this.name = "PasswordResetRequestError";
+    this.status = status;
+    this.errorType = errorType;
+  }
+}
 
 export const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 export const SUPABASE_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "";
@@ -211,6 +245,162 @@ export function buildEmailConfirmationRedirect(locale: string, canonicalOrigin?:
   const origin = new URL(absoluteOrigin).origin;
   const supportedLocale = locale === "zh" ? "zh" : "en";
   return new URL(`/${supportedLocale}/login`, `${origin}/`).toString();
+}
+
+type SupabaseAuthErrorPayload = {
+  code?: unknown;
+  error_code?: unknown;
+  message?: unknown;
+  msg?: unknown;
+};
+
+function passwordResetErrorType(status: number, payload: SupabaseAuthErrorPayload): string {
+  const code = String(payload.error_code ?? payload.code ?? "").toLowerCase();
+  const message = String(payload.message ?? payload.msg ?? "").toLowerCase();
+  const details = `${code} ${message}`;
+  if (status === 429 || details.includes("rate limit")) return "rate_limit";
+  if (details.includes("redirect") && (details.includes("allow") || details.includes("invalid"))) return "invalid_redirect";
+  if (details.includes("smtp") || details.includes("email") && details.includes("send")) return "email_delivery_config";
+  if (details.includes("captcha")) return "captcha_required";
+  if (status === 401 || status === 403) return "supabase_auth_rejection";
+  if (status === 400 || status === 422) return "invalid_request";
+  if (status >= 500) return "supabase_server_error";
+  return "supabase_auth_rejection";
+}
+
+function logPasswordRecoveryDiagnostic(authStage: string, endpointType: string, status: number | null, errorType: string) {
+  const diagnostic = {
+    auth_stage: authStage,
+    endpoint_type: endpointType,
+    status,
+    error_type: errorType,
+  };
+  if (errorType === "none") console.info("auth_diagnostic", diagnostic);
+  else console.error("auth_diagnostic", diagnostic);
+}
+
+export async function requestPasswordReset(email: string): Promise<void> {
+  if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+    logPasswordRecoveryDiagnostic("forgot_password_request", "supabase_auth_recover", null, "configuration_missing");
+    throw new PasswordResetRequestError(null, "configuration_missing");
+  }
+  const recoveryUrl = new URL(`${SUPABASE_URL.replace(/\/$/, "")}/auth/v1/recover`);
+  let response: Response;
+  try {
+    response = await fetch(recoveryUrl.toString(), {
+      method: "POST",
+      headers: {apikey: SUPABASE_PUBLISHABLE_KEY, "Content-Type": "application/json"},
+      body: JSON.stringify({email}),
+    });
+  } catch (error) {
+    const errorType = error instanceof DOMException && error.name === "AbortError" ? "timeout" : "network_error";
+    logPasswordRecoveryDiagnostic("forgot_password_request", "supabase_auth_recover", null, errorType);
+    throw new PasswordResetRequestError(null, errorType);
+  }
+  if (!response.ok) {
+    let payload: SupabaseAuthErrorPayload = {};
+    try {
+      payload = await response.clone().json() as SupabaseAuthErrorPayload;
+    } catch {
+      // The response body is intentionally neither required nor logged.
+    }
+    const errorType = passwordResetErrorType(response.status, payload);
+    logPasswordRecoveryDiagnostic("forgot_password_request", "supabase_auth_recover", response.status, errorType);
+    throw new PasswordResetRequestError(response.status, errorType);
+  }
+  logPasswordRecoveryDiagnostic("forgot_password_request", "supabase_auth_recover", response.status, "none");
+}
+
+function clearRecoverySession() {
+  window.sessionStorage.removeItem(RECOVERY_SESSION_KEY);
+}
+
+function storedRecoverySession(): RecoverySession | null {
+  const raw = window.sessionStorage.getItem(RECOVERY_SESSION_KEY);
+  if (!raw) return null;
+  try {
+    const session = JSON.parse(raw) as RecoverySession;
+    if (!session.access_token || session.type !== "recovery") throw new Error("invalid recovery session");
+    if (session.expires_at && session.expires_at <= Math.floor(Date.now() / 1000)) throw new Error("expired recovery session");
+    return session;
+  } catch {
+    clearRecoverySession();
+    return null;
+  }
+}
+
+function recoveryOtpErrorType(status: number, payload: SupabaseAuthErrorPayload): string {
+  const details = String(payload.error_code ?? payload.code ?? payload.message ?? payload.msg ?? "").toLowerCase();
+  if (details.includes("expired")) return "otp_expired";
+  if (details.includes("invalid") || details.includes("token")) return "otp_invalid";
+  if (status === 429) return "rate_limit";
+  if (status >= 500) return "supabase_server_error";
+  return "supabase_auth_rejection";
+}
+
+export async function verifyPasswordRecoveryOtp(email: string, token: string): Promise<void> {
+  if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+    logPasswordRecoveryDiagnostic("recovery_otp_verification", "supabase_auth_verify", null, "configuration_missing");
+    throw new RecoveryOtpError(null, "configuration_missing");
+  }
+  let response: Response;
+  try {
+    response = await fetch(`${SUPABASE_URL.replace(/\/$/, "")}/auth/v1/verify`, {
+      method: "POST",
+      headers: {apikey: SUPABASE_PUBLISHABLE_KEY, "Content-Type": "application/json"},
+      body: JSON.stringify({email, token, type: "recovery"}),
+    });
+  } catch (error) {
+    const errorType = error instanceof DOMException && error.name === "AbortError" ? "timeout" : "network_error";
+    logPasswordRecoveryDiagnostic("recovery_otp_verification", "supabase_auth_verify", null, errorType);
+    throw new RecoveryOtpError(null, errorType);
+  }
+  let payload: unknown = {};
+  try {
+    payload = await response.json();
+  } catch {
+    // The response body is intentionally neither required nor logged.
+  }
+  if (!response.ok) {
+    const errorType = recoveryOtpErrorType(response.status, asRecord(payload) ?? {});
+    logPasswordRecoveryDiagnostic("recovery_otp_verification", "supabase_auth_verify", response.status, errorType);
+    throw new RecoveryOtpError(response.status, errorType);
+  }
+  const session = normalizeAuthSession(payload);
+  if (!session) {
+    logPasswordRecoveryDiagnostic("recovery_otp_verification", "supabase_auth_verify", response.status, "invalid_response");
+    throw new RecoveryOtpError(response.status, "invalid_response");
+  }
+  const recovery: RecoverySession = {
+    access_token: session.access_token,
+    ...(session.refresh_token ? {refresh_token: session.refresh_token} : {}),
+    ...(session.expires_at ? {expires_at: session.expires_at} : {}),
+    type: "recovery",
+  };
+  window.sessionStorage.setItem(RECOVERY_SESSION_KEY, JSON.stringify(recovery));
+  logPasswordRecoveryDiagnostic("recovery_otp_verification", "supabase_auth_verify", response.status, "none");
+}
+
+export async function updatePasswordWithRecovery(password: string): Promise<void> {
+  requireSupabaseConfig();
+  const recovery = storedRecoverySession();
+  if (!recovery) throw new RecoverySessionError("Recovery session is invalid or expired.");
+  const response = await fetch(`${SUPABASE_URL.replace(/\/$/, "")}/auth/v1/user`, {
+    method: "PUT",
+    headers: {
+      apikey: SUPABASE_PUBLISHABLE_KEY,
+      Authorization: `Bearer ${recovery.access_token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({password}),
+  });
+  if (response.status === 401 || response.status === 403) {
+    clearRecoverySession();
+    throw new RecoverySessionError("Recovery session is invalid or expired.");
+  }
+  if (!response.ok) throw new Error("Password update failed.");
+  clearRecoverySession();
+  clearSession();
 }
 
 export async function registerWithPassword(name: string, email: string, password: string, locale: string): Promise<AuthSession | null> {

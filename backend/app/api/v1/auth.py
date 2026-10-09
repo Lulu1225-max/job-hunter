@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.core.security import AuthError, authenticate_supabase_password
+from app.core.security import AuthError, AuthNetworkError, authenticate_supabase_password
 from app.repositories.database import ensure_user
 
 router = APIRouter()
@@ -22,6 +22,11 @@ def demo_login(db: Session = Depends(get_db)) -> dict:
         )
     try:
         session = authenticate_supabase_password(settings.demo_user_email, settings.demo_user_password)
+    except AuthNetworkError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"error": {"code": "DEMO_AUTH_UNAVAILABLE", "message": "Demo authentication service is temporarily unavailable"}},
+        ) from exc
     except AuthError as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,

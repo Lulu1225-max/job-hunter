@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.models.application import Application
 from app.models.career_profile import CareerProfile
+from app.models.company_profile import CompanyProfile
 from app.models.discovery_match_cache import DiscoveryMatchCache
 from app.models.experience import Experience
 from app.models.interview import Interview
@@ -220,6 +221,15 @@ class ApplicationRepository:
     def get(self, db: Session, user_id: UUID, application_id: UUID) -> Application | None:
         row = db.get(Application, application_id)
         return row if row and row.user_id == user_id else None
+
+    def get_by_job_id(self, db: Session, user_id: UUID, job_id: UUID) -> dict[str, Any] | None:
+        row = db.scalar(
+            select(Application).where(
+                Application.user_id == user_id,
+                Application.job_id == job_id,
+            )
+        )
+        return serialize_model(row) if row else None
 
     def create(self, db: Session, user_id: UUID, payload: dict[str, Any]) -> dict[str, Any]:
         values = self._clean(payload)
@@ -457,6 +467,24 @@ class ResumeAnalysisRepository:
         return row
 
 
+class CompanyProfileRepository:
+    def get(self, db: Session, normalized_company_name: str) -> CompanyProfile | None:
+        return db.scalar(select(CompanyProfile).where(
+            CompanyProfile.normalized_company_name == normalized_company_name,
+        ))
+
+    def upsert(self, db: Session, normalized_company_name: str, values: dict[str, Any]) -> CompanyProfile:
+        row = self.get(db, normalized_company_name)
+        if row is None:
+            row = CompanyProfile(normalized_company_name=normalized_company_name, **values)
+            db.add(row)
+        else:
+            for key, value in values.items():
+                setattr(row, key, value)
+        db.flush()
+        return row
+
+
 class DiscoveryMatchCacheRepository:
     def current(self, db: Session, user_id: UUID, resume_id: UUID, job_id: UUID, resume_fingerprint: str, job_fingerprint: str, scoring_version: str) -> DiscoveryMatchCache | None:
         return db.scalar(select(DiscoveryMatchCache).where(
@@ -620,6 +648,7 @@ profile_repo = ProfileRepository()
 experiences_repo = ExperienceRepository()
 resumes_repo = ResumeRepository()
 resume_analyses_repo = ResumeAnalysisRepository()
+company_profiles_repo = CompanyProfileRepository()
 discovery_match_caches_repo = DiscoveryMatchCacheRepository()
 interview_questions_repo = InterviewQuestionRepository()
 interviews_repo = InterviewRepository()

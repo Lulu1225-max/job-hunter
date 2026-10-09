@@ -16,13 +16,15 @@ export function AppShell({children, locale}: {children: React.ReactNode; locale:
   const t = useTranslations();
   const otherLocale = locale === "zh" ? "en" : "zh";
   const withoutLocale = pathname.replace(/^\/(en|zh)/, "") || "/dashboard";
-  const isAuthPage = withoutLocale.startsWith("/login") || withoutLocale.startsWith("/register");
+  const isAuthPage = ["/login", "/register", "/forgot-password", "/update-password"].some((path) => withoutLocale.startsWith(path));
   const currentNavItem = navItems.find((item) => withoutLocale === item.href || withoutLocale.startsWith(`${item.href}/`));
   const auxiliaryPageKeys: Record<string, string> = {
     "/profile": "nav.profile",
     "/analytics": "nav.analytics",
     "/login": "auth.login",
-    "/register": "auth.register"
+    "/register": "auth.register",
+    "/forgot-password": "auth.forgotPasswordTitle",
+    "/update-password": "auth.updatePasswordTitle"
   };
   const currentPageLabel = t(currentNavItem?.labelKey ?? auxiliaryPageKeys[withoutLocale] ?? "nav.dashboard");
   const [isSignedIn, setIsSignedIn] = useState(false);

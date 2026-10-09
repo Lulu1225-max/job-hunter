@@ -14,7 +14,10 @@ export default async function ApplicationDetailPage({params}: {params: Promise<{
         subtitle: t("applications.detailSubtitle"),
         loading: t("states.loading"),
         error: t("states.error"),
-        prepareInterview: t("interviews.prepareInterview")
+        prepareInterview: t("interviews.prepareInterview"),
+        companyResearch: t("companyResearch.title"),
+        jobDescription: t("applications.jobDescription"),
+        noJobDescription: t("applications.noJobDescription")
       }}
     />
   );

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
+import time
 from typing import Any
 from uuid import UUID
 
@@ -11,9 +13,13 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt import PyJWKClient
 
 from app.core.config import settings
+from app.core.runtime_logging import get_server_logger
 
 
 bearer_scheme = HTTPBearer(auto_error=False)
+logger = get_server_logger()
+SUPABASE_AUTH_MAX_ATTEMPTS = 3
+SUPABASE_AUTH_RETRY_BASE_SECONDS = 0.2
 
 
 @dataclass(frozen=True)
@@ -25,6 +31,31 @@ class AuthenticatedUser:
 
 class AuthError(Exception):
     pass
+
+
+class AuthNetworkError(AuthError):
+    pass
+
+
+def _supabase_auth_client() -> httpx.Client:
+    return httpx.Client(
+        timeout=httpx.Timeout(15.0, connect=5.0, read=15.0, write=10.0, pool=5.0),
+        follow_redirects=False,
+        limits=httpx.Limits(max_connections=5, max_keepalive_connections=0),
+        trust_env=False,
+    )
+
+
+def _log_auth_request(*, auth_stage: str, endpoint_type: str, attempt: int, error_type: str) -> None:
+    logger.warning(
+        "auth_request_event %s",
+        json.dumps({
+            "auth_stage": auth_stage,
+            "endpoint_type": endpoint_type,
+            "attempt": attempt,
+            "error_type": error_type,
+        }, separators=(",", ":")),
+    )
 
 
 def _issuer() -> str | None:
@@ -94,16 +125,39 @@ def _verify_with_auth_server(token: str) -> dict[str, Any]:
 def authenticate_supabase_password(email: str, password: str) -> dict[str, Any]:
     if not settings.supabase_url or not settings.supabase_publishable_key:
         raise AuthError("Supabase URL or publishable key is not configured")
-    response = httpx.post(
-        f"{settings.supabase_url.rstrip('/')}/auth/v1/token?grant_type=password",
-        headers={
-            "apikey": settings.supabase_publishable_key,
-            "Content-Type": "application/json",
-        },
-        json={"email": email, "password": password},
-        timeout=15,
-    )
+    endpoint = f"{settings.supabase_url.rstrip('/')}/auth/v1/token?grant_type=password"
+    response: httpx.Response | None = None
+    for attempt in range(1, SUPABASE_AUTH_MAX_ATTEMPTS + 1):
+        try:
+            with _supabase_auth_client() as client:
+                response = client.post(
+                    endpoint,
+                    headers={
+                        "apikey": settings.supabase_publishable_key,
+                        "Content-Type": "application/json",
+                    },
+                    json={"email": email, "password": password},
+                )
+            break
+        except (httpx.NetworkError, httpx.TimeoutException, httpx.RemoteProtocolError) as exc:
+            _log_auth_request(
+                auth_stage="supabase_password_auth",
+                endpoint_type="token_password_grant",
+                attempt=attempt,
+                error_type=type(exc).__name__,
+            )
+            if attempt == SUPABASE_AUTH_MAX_ATTEMPTS:
+                raise AuthNetworkError("Supabase authentication network request failed") from exc
+            time.sleep(SUPABASE_AUTH_RETRY_BASE_SECONDS * (2 ** (attempt - 1)))
+    if response is None:
+        raise AuthNetworkError("Supabase authentication network request failed")
     if response.status_code != 200:
+        _log_auth_request(
+            auth_stage="supabase_password_auth",
+            endpoint_type="token_password_grant",
+            attempt=attempt,
+            error_type=f"HTTPStatus{response.status_code}",
+        )
         raise AuthError("Supabase password authentication failed")
     session = response.json()
     user_id = session.get("user", {}).get("id")

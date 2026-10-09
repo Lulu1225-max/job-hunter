@@ -22,6 +22,7 @@ export function ApplicationsClient({locale, statusFilter, copy}: {locale: string
   const [role, setRole] = useState("");
   const [applicationDate, setApplicationDate] = useState(todayInputValue);
   const [deadline, setDeadline] = useState("");
+  const [jobDescription, setJobDescription] = useState("");
   const [pendingDelete, setPendingDelete] = useState<Application | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -44,7 +45,7 @@ export function ApplicationsClient({locale, statusFilter, copy}: {locale: string
   async function createApplication() {
     if (!company.trim()) return;
     setSaving(true);setError(null);
-    try {await apiSend<Application>("/api/v1/applications", "POST", {company, role:role.trim()||null, application_date:applicationDate, deadline:deadline||null, status: "saved", source: "manual"});setCompany("");setRole("");setApplicationDate(todayInputValue());setDeadline("");await load()} catch(err) {setError((err as Error).message)} finally {setSaving(false)}
+    try {await apiSend<Application>("/api/v1/applications", "POST", {company, role:role.trim()||null, job_description:jobDescription.trim()||null, application_date:applicationDate, deadline:deadline||null, status: "saved", source: "manual"});setCompany("");setRole("");setJobDescription("");setApplicationDate(todayInputValue());setDeadline("");await load()} catch(err) {setError((err as Error).message)} finally {setSaving(false)}
   }
 
   async function deleteApplication() {
@@ -79,6 +80,10 @@ export function ApplicationsClient({locale, statusFilter, copy}: {locale: string
           <Plus className="h-4 w-4" />
           {saving?copy.saving:copy.add}
         </button>
+        <label className="text-sm font-medium text-ink md:col-span-2 xl:col-span-5">
+          {copy.jobDescription}
+          <textarea value={jobDescription} onChange={(event) => setJobDescription(event.target.value)} placeholder={copy.jobDescriptionPlaceholder} rows={6} className="mt-1 w-full resize-y rounded-md border border-line px-3 py-2 text-sm leading-6 outline-none focus:border-brand focus:ring-4 focus:ring-blue-100" />
+        </label>
       </section>
       {loading && <StateCard text={copy.loading} />}
       {error && <StateCard text={copy.error} />}

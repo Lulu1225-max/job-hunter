@@ -5,10 +5,11 @@ from pydantic import BaseModel
 
 class ApplicationCreate(BaseModel):
     job_id: str | None = None
-    company: str
+    company: str | None = None
     role: str | None = None
     location: str | None = None
     job_url: str | None = None
+    job_description: str | None = None
     salary: str | None = None
     application_date: str | None = None
     deadline: str | None = None
@@ -23,6 +24,7 @@ class ApplicationUpdate(BaseModel):
     role: str | None = None
     location: str | None = None
     job_url: str | None = None
+    job_description: str | None = None
     salary: str | None = None
     application_date: str | None = None
     deadline: str | None = None

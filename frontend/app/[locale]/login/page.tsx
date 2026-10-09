@@ -17,5 +17,6 @@ export default async function LoginPage({params}: {params: Promise<{locale: stri
     error: t("auth.loginError"),
     demoError: t("auth.demoError"),
     demoWarning: t("auth.demoWarning"),
+    forgotPassword: t("auth.forgotPassword"),
   }} />;
 }

@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     openai_model: str = "gpt-4.1-mini"
     openai_embedding_model: str = "text-embedding-3-small"
     openai_embedding_dimension: int = 1536
+    tavily_api_key: str | None = None
     embedding_max_characters: int = 30000
     resume_upload_max_bytes: int = 10 * 1024 * 1024
 

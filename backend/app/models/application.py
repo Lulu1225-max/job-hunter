@@ -21,6 +21,7 @@ class Application(TimestampMixin, Base):
     role: Mapped[str | None] = mapped_column(String(300))
     location: Mapped[str | None] = mapped_column(Text)
     job_url: Mapped[str | None] = mapped_column(Text)
+    job_description: Mapped[str | None] = mapped_column(Text)
     salary: Mapped[str | None] = mapped_column(String(250))
     application_date: Mapped[date | None] = mapped_column(Date)
     deadline: Mapped[date | None] = mapped_column(Date)

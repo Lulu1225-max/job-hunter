@@ -13,6 +13,8 @@ export default async function ApplicationsPage({params, searchParams}: {params: 
     role: t("applications.role"),
     applicationDate: t("applications.applicationDate"),
     applicationDeadline: t("applications.applicationDeadline"),
+    jobDescription: t("applications.jobDescription"),
+    jobDescriptionPlaceholder: t("applications.jobDescriptionPlaceholder"),
     delete: t("applications.delete"),
     deleteTitle: t("applications.deleteTitle"),
     deleteMessage: t("applications.deleteMessage"),

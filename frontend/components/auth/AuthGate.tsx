@@ -4,7 +4,7 @@ import {usePathname, useRouter} from "next/navigation";
 import {useEffect, useState} from "react";
 import {restoreSession, startAutoRefresh, subscribeToAuthChanges} from "@/lib/auth";
 
-const PUBLIC_PATHS = ["/login", "/register"];
+const PUBLIC_PATHS = ["/login", "/register", "/forgot-password", "/update-password"];
 
 export function AuthGate({children, locale}: {children: React.ReactNode; locale: string}) {
   const pathname = usePathname();

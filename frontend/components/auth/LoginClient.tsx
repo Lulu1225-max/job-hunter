@@ -60,6 +60,7 @@ export function LoginClient({locale, copy}: {locale: string; copy: Record<string
       <div className="mt-5 space-y-3">
         <label className="block text-sm font-medium text-ink">{copy.email}<input value={email} onChange={(event) => setEmail(event.target.value)} className="mt-1 h-10 w-full rounded-md border border-line px-3 text-sm" autoComplete="email" type="email" /></label>
         <label className="block text-sm font-medium text-ink">{copy.password}<input value={password} onChange={(event) => setPassword(event.target.value)} className="mt-1 h-10 w-full rounded-md border border-line px-3 text-sm" autoComplete="current-password" type="password" /></label>
+        <div className="text-right"><Link className="text-sm font-medium text-brand hover:underline" href={`/${locale}/forgot-password`}>{copy.forgotPassword}</Link></div>
         <button type="button" disabled={loading} onClick={login} className="block h-10 w-full rounded-md bg-brand px-4 py-2 text-center text-sm font-medium text-white shadow-card hover:bg-blue-700 disabled:opacity-60">
           {loading ? copy.loading : copy.login}
         </button>

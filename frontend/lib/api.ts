@@ -25,13 +25,105 @@ export type JobPage = {items: Job[]; page: number; page_size: number; total: num
 
 export type Application = {
   id: string;
+  job_id?: string | null;
   company: string;
   role?: string | null;
   location?: string | null;
+  job_description?: string | null;
   status: string;
   application_date?: string | null;
   deadline?: string | null;
   notes?: string | null;
+};
+
+export type ResearchSourceType = "user_provided" | "official" | "external" | "campus" | "community" | "ai_inference";
+export type ResearchClaimType = "fact" | "inference" | "grounded_synthesis";
+export type ResearchSectionStatus = "available" | "unavailable";
+export type ResearchGenerationStatus = "generated" | "partial" | "unavailable" | "failed" | "invalid_output";
+export type InterviewReferenceStatus = "interview_reference" | "unavailable";
+
+export type ResearchEvidence = {
+  evidence_id: string;
+  source_id: string;
+  source_type: ResearchSourceType;
+  evidence_type: string;
+  text: string;
+};
+
+export type ResearchFetchedSource = {
+  source_id: string;
+  title: string;
+  url: string;
+  source_type: Exclude<ResearchSourceType, "user_provided" | "ai_inference">;
+  published_at?: string | null;
+  content_type?: string | null;
+  extracted_text: string;
+  fetch_status: "success" | "unavailable" | "skipped" | "failed";
+  error?: string | null;
+};
+
+type GroundedResearchItem = {
+  claim_type: ResearchClaimType;
+  evidence_ids: string[];
+};
+
+export type CompanyResearchOutput = {
+  application_id: string;
+  company_name: string;
+  job_title?: string | null;
+  company_map: {
+    status: ResearchSectionStatus;
+    items: Array<GroundedResearchItem & {category: string; text: string}>;
+  };
+  role_decoder: {
+    status: ResearchSectionStatus;
+    items: Array<GroundedResearchItem & {category: string; text: string}>;
+  };
+  recent_signals: {
+    status: ResearchSectionStatus;
+    items: Array<GroundedResearchItem & {title: string; date?: string | null; why_it_matters_for_interview: string; role_relevance: "high" | "medium" | "low"}>;
+  };
+  competitive_context: {
+    status: ResearchSectionStatus;
+    items: Array<GroundedResearchItem & {context_type: "direct_competitor" | "comparable_reference"; competitor: string; comparison_dimension: string; observed_difference: string; interview_relevance: string; what_reference_does?: string | null; what_target_role_emphasizes?: string | null; interview_takeaway?: string | null}>;
+  };
+  likely_interview_focus: {
+    status: ResearchSectionStatus;
+    items: Array<GroundedResearchItem & {focus_area: string; why_likely: string; likely_questions: string[]; preparation_focus: string; confidence: "high" | "medium" | "low"}>;
+  };
+  why_company_why_role_60s: {
+    status: ResearchSectionStatus;
+    items: Array<GroundedResearchItem & {text: string}>;
+  };
+  reverse_questions: {
+    status: ResearchSectionStatus;
+    items: Array<GroundedResearchItem & {question: string; rationale: string}>;
+  };
+  fetched_sources: ResearchFetchedSource[];
+  evidence: ResearchEvidence[];
+  interview_references: {
+    recent_signals_status: InterviewReferenceStatus;
+    recent_signals: Array<{watch_topic: string; why_relevant: string; what_to_learn: string[]}>;
+    competitive_context_status: InterviewReferenceStatus;
+    competitive_context: Array<{entity_name: string; reference_type: "competitor_reference" | "comparable_product"; shared_dimension: string; why_relevant: string; interview_angle: string}>;
+    why_company_role_status: InterviewReferenceStatus;
+    why_company_role?: {company_reason: string; role_reason: string; personal_motivation_prompt: string; sample_answer: string} | null;
+  };
+  company_knowledge: {
+    company_positioning?: string | null;
+    core_business: string[];
+    key_brands_and_products: string[];
+    customer_and_market: string[];
+    role_relevant_products_and_scenarios: Array<{name: string; type: "product" | "platform" | "brand" | "ecosystem" | "capability" | "business"; relevance_to_role: string; key_scenarios: string[]; things_to_understand: string[]}>;
+    comparable_products: Array<{entity_name: string; reference_type: "competitor_reference" | "comparable_product"; why_relevant: string; comparison_dimensions: string[]}>;
+  };
+  company_knowledge_source_ids: Record<string, string[]>;
+  company_knowledge_sources: Array<{source_id: string; title: string; url: string; source_type: "official" | "external" | "campus" | "community"; published_at?: string | null; category?: string | null}>;
+  generation_status: ResearchGenerationStatus;
+  company_profile_generated_at?: string | null;
+  company_profile_refreshed_at?: string | null;
+  company_profile_is_stale: boolean;
+  company_profile_cache_hit: boolean;
 };
 
 export type Resume = {

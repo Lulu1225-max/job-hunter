@@ -1,6 +1,7 @@
 from app.models.application import Application
 from app.models.analytics_event import AnalyticsEvent
 from app.models.career_profile import CareerProfile
+from app.models.company_profile import CompanyProfile
 from app.models.discovery_match_cache import DiscoveryMatchCache
 from app.models.experience import Experience
 from app.models.interview import Interview
@@ -17,6 +18,7 @@ __all__ = [
     "AnalyticsEvent",
     "Application",
     "CareerProfile",
+    "CompanyProfile",
     "DiscoveryMatchCache",
     "Experience",
     "Interview",

@@ -7,10 +7,12 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.security import get_current_user_id
-from app.repositories.database import applications_repo, ensure_user
+from app.repositories.database import applications_repo, ensure_user, jobs_repo
 from app.schemas.ai import ApplicationEmailParseRequest
 from app.schemas.applications import ApplicationCreate, ApplicationUpdate
 from app.services.ai.application_parser import application_parser
+from app.skills.company_role_research import company_role_research_skill
+from app.skills.company_role_research.schemas import CompanyRoleResearchOutput
 
 router = APIRouter()
 
@@ -30,7 +32,22 @@ def list_applications(
 @router.post("")
 def create_application(payload: ApplicationCreate, db: Session = Depends(get_db), user_id: UUID = Depends(get_current_user_id)) -> dict:
     ensure_user(db, user_id)
-    application = applications_repo.create(db, user_id, payload.model_dump())
+    values = payload.model_dump()
+    if payload.job_id:
+        job_id = UUID(payload.job_id)
+        job = jobs_repo.get_row(db, user_id, job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail={"error": {"code": "JOB_NOT_FOUND", "message": "Job not found"}})
+        existing = applications_repo.get_by_job_id(db, user_id, job_id)
+        if existing:
+            return existing
+        values["company"] = job.company
+        values["role"] = job.role
+        if values["job_description"] is None:
+            values["job_description"] = job.description
+    elif not payload.company:
+        raise HTTPException(status_code=422, detail={"error": {"code": "COMPANY_REQUIRED", "message": "Company is required"}})
+    application = applications_repo.create(db, user_id, values)
     db.commit()
     return application
 
@@ -44,6 +61,25 @@ def get_application(application_id: UUID, db: Session = Depends(get_db), user_id
     from app.repositories.database import serialize_model
 
     return serialize_model(application)
+
+
+@router.post("/{application_id}/company-research", response_model=CompanyRoleResearchOutput)
+def research_company_and_role(
+    application_id: UUID,
+    db: Session = Depends(get_db),
+    user_id: UUID = Depends(get_current_user_id),
+    regenerate_company_profile: bool = Query(default=False),
+) -> CompanyRoleResearchOutput:
+    ensure_user(db, user_id)
+    application = applications_repo.get(db, user_id, application_id)
+    if not application:
+        raise HTTPException(status_code=404, detail={"error": {"code": "APPLICATION_NOT_FOUND", "message": "Application not found"}})
+    return company_role_research_skill.run(
+        db,
+        user_id,
+        application,
+        force_profile_refresh=regenerate_company_profile,
+    )
 
 
 @router.put("/{application_id}")
