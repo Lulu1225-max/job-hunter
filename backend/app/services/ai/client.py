@@ -244,6 +244,24 @@ class AIClient:
     def get_embedding(self, text: str) -> list[float]:
         return self.get_embeddings([text])[0]
 
+    def transcribe_audio(self, *, audio: bytes, filename: str, content_type: str) -> tuple[str, float | None]:
+        """Transcribe an in-memory audio file without logging or persisting its contents."""
+        try:
+            if not settings.openai_api_key:
+                raise RuntimeError("OPENAI_API_KEY is not configured")
+            response = OpenAI(api_key=settings.openai_api_key, timeout=45.0, max_retries=1).audio.transcriptions.create(
+                model=settings.openai_transcription_model,
+                file=(filename, audio, content_type),
+                response_format="json",
+            )
+            text = str(getattr(response, "text", "") or "").strip()
+            usage = getattr(response, "usage", None)
+            seconds = usage.get("seconds") if isinstance(usage, dict) else getattr(usage, "seconds", None) if usage is not None else None
+            return text, float(seconds) if isinstance(seconds, (int, float)) else None
+        except Exception as exc:
+            _log_openai_failure(exc, "interview_audio_transcription")
+            raise
+
     def structured_completion(
         self,
         *,

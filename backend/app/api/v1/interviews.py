@@ -1,18 +1,42 @@
 from uuid import UUID
-from fastapi import APIRouter,Depends,HTTPException,Query,Response
+from fastapi import APIRouter,Depends,File,Form,HTTPException,Query,Response,UploadFile,status
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
+from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import get_current_user_id
 from app.repositories.database import ensure_user
 from app.schemas.interviews import *
 from app.services.interview_service import interview_service
+from app.services.transcription_service import TranscriptionInputError,TranscriptionProviderError,transcription_service
 
 router=APIRouter()
 def fail(exc):
     if isinstance(exc,KeyError):raise HTTPException(404,detail={"error":{"code":"NOT_FOUND","message":str(exc).strip("'")}})
     if isinstance(exc,ValueError):raise HTTPException(422,detail={"error":{"code":"INVALID_INTERVIEW_REQUEST","message":str(exc)}})
     raise HTTPException(503,detail={"error":{"code":"AI_UNAVAILABLE","message":"Interview AI is temporarily unavailable"}})
+
+@router.post("/interviews/transcribe",response_model=TranscriptionResponse)
+async def transcribe_interview_answer(
+    audio:UploadFile=File(...),
+    duration_seconds:float=Form(...),
+    db:Session=Depends(get_db),
+    user_id:UUID=Depends(get_current_user_id),
+):
+    ensure_user(db,user_id)
+    chunks:list[bytes]=[];total=0
+    while chunk:=await audio.read(1024*1024):
+        total+=len(chunk)
+        chunks.append(chunk)
+        if total>settings.interview_audio_max_bytes:break
+    try:
+        return transcription_service.transcribe(user_id=user_id,audio=b"".join(chunks),content_type=audio.content_type,duration_seconds=duration_seconds)
+    except TranscriptionInputError as exc:
+        response_status=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE if exc.code=="UNSUPPORTED_AUDIO_TYPE" else status.HTTP_422_UNPROCESSABLE_ENTITY
+        raise HTTPException(response_status,detail={"error":{"code":exc.code,"message":"The recording could not be transcribed. Please try again or type your answer."}}) from exc
+    except TranscriptionProviderError as exc:
+        response_status=status.HTTP_504_GATEWAY_TIMEOUT if exc.code=="TRANSCRIPTION_TIMEOUT" else status.HTTP_503_SERVICE_UNAVAILABLE
+        raise HTTPException(response_status,detail={"error":{"code":exc.code,"message":"Voice transcription is temporarily unavailable. Please try again or type your answer."}}) from exc
 
 @router.get("/interviews")
 def list_interviews(db:Session=Depends(get_db),user_id:UUID=Depends(get_current_user_id)):

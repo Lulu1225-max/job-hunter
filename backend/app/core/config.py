@@ -21,11 +21,14 @@ class Settings(BaseSettings):
     demo_user_password: str | None = None
     openai_api_key: str | None = None
     openai_model: str = "gpt-4.1-mini"
+    openai_transcription_model: str = "gpt-4o-mini-transcribe"
     openai_embedding_model: str = "text-embedding-3-small"
     openai_embedding_dimension: int = 1536
     tavily_api_key: str | None = None
     embedding_max_characters: int = 30000
     resume_upload_max_bytes: int = 10 * 1024 * 1024
+    interview_audio_max_bytes: int = 15 * 1024 * 1024
+    interview_audio_max_seconds: int = 300
 
     @property
     def cors_origins(self) -> list[str]:

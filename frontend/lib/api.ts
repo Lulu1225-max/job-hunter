@@ -198,6 +198,13 @@ export type ExperienceRecommendation = {
   skills: string[]; technologies: string[]; selected: false;
 };
 
+export type TranscriptionResponse = {
+  transcript: string;
+  duration_seconds?: number | null;
+  provider: "openai";
+  model: string;
+};
+
 export type MatchInsight = {
   status: "ready" | "scored" | "semantic_only" | "limited_data" | "no_resume";
   overall_score?: number | null;

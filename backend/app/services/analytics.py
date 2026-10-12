@@ -21,6 +21,8 @@ EVENTS = {
     "experience_selected": set(),
     "interview_answer_generated": {"language", "question_type"},
     "interview_answer_regenerated": {"language", "question_type"},
+    "interview_transcription_completed": {"audio_size_bytes", "audio_duration_seconds", "model"},
+    "interview_transcription_failed": {"audio_size_bytes", "audio_duration_seconds"},
     "question_bank_item_created": {"source", "category"},
     "question_bank_item_updated": {"source", "category"},
     "question_bank_item_deleted": {"source", "category"},
